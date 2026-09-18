@@ -1,0 +1,17 @@
+.DS_Store
+
+*.bt
+*.stream
+*.xml
+*.bin
+
+# Ada
+# Object file
+*.o
+
+# Ada Library Information
+*.ali
+
+*.bexch
+*.stdout
+*.stderr
