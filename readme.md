@@ -21,15 +21,15 @@ usage: `bin_test <path to ornaments.bin file> -ik <format> -ok <format>`
 - `-ik` sets input format
 - `-ok` sets output format
 -  formats kinds:
-  - `RDG` (race driver grid)
-  - `D2` (dirt 2)
-  - `F1_2010`
-  - `F1_OTHERS` (f1 2011 - 2014, same as dirt 2)
-  - `D3` (dirt 3)
-  - `DS` (dirt showdown)
-  - `G2` (grid 2)
-  - `GA` (grid autosport)
-  - `DR` (dirt rally 1, same as GA)
+    - `RDG` (race driver grid)
+    - `D2` (dirt 2)
+    - `F1_2010`
+    - `F1_OTHERS` (f1 2011 - 2014, same as dirt 2)
+    - `D3` (dirt 3)
+    - `DS` (dirt showdown)
+    - `G2` (grid 2)
+    - `GA` (grid autosport)
+    - `DR` (dirt rally 1, same as GA)
 
 the file `output_test` will be created in the directory the program was run,
 it can be renamed to `ornaments.bin` and placed in the route folder of a track.
