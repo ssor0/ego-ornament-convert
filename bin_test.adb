@@ -619,30 +619,6 @@ procedure bin_test is
       ob.instance_list.referenceNum := num_iref;
 
 
-      --  
-
-      --  offsets
-      --  place file pos in array to return?
-      --  add or subtract existing value?
-      --
-      --    instanceList.InstanceOffset
-      --    instanceRef.instancesOffset
-      --
-      --    dependntList and pathAnimRoot offset can be set with add or s?
-      --
-      --    depdentList.fileNameOffset
-      --    
-      --
-      --    strings
-      --      instanceRef.fileNameOffset
-      --      instance.offsetSkyMap? (only add if not FFFFFFFF)
-      --      instance.todSpecificOffset? (only add if not FFFFFFFF) 
-      --      instance.modeLayerOffset? (only add if not FFFFFFFF) 
-      --      instance.piaoTextureOffset (only add if not FFFFFFFF) 
-      --      instance.hueShiftIdOffset? (only add if not FFFFFFFF) 
-      --      instance.sponsorHueShiftIdOffset? (only add if not FFFFFFFF) 
-      --    hueShiftIdOffset (only add if not FFFFFFFF) 
-
       if ik in d3 .. dr then
          int32'read (istream, ob.instance_list.instanceOffset);
          int32'read (istream, ob.instance_list.numInstance);
@@ -1145,30 +1121,6 @@ procedure bin_test is
       --  instanceList
 
       put_line ("instance list");
-
-      --  
-
-      --  offsets
-      --  place file pos in array to return?
-      --  add or subtract existing value?
-      --
-      --    instanceList.InstanceOffset
-      --    instanceRef.instancesOffset
-      --
-      --    dependntList and pathAnimRoot offset can be set with add or s?
-      --
-      --    depdentList.fileNameOffset
-      --    
-      --
-      --    strings
-      --      instanceRef.fileNameOffset
-      --      instance.offsetSkyMap? (only add if not FFFFFFFF)
-      --      instance.todSpecificOffset? (only add if not FFFFFFFF) 
-      --      instance.modeLayerOffset? (only add if not FFFFFFFF) 
-      --      instance.piaoTextureOffset (only add if not FFFFFFFF) 
-      --      instance.hueShiftIdOffset? (only add if not FFFFFFFF) 
-      --      instance.sponsorHueShiftIdOffset? (only add if not FFFFFFFF) 
-      --    hueShiftIdOffset (only add if not FFFFFFFF) 
 
 
       aabb_t'write (ostream, ob.instance_list.bounds);
