@@ -307,8 +307,10 @@ procedure bin_test is
 
    end record;
 
-   --   !  + 4 is discriminant
-   pragma compile_time_error ((pathAnim'size / 8) /= 48 + 4, "p a not correct size");
+   --   !  48 + 4 (4 is discriminant)
+   --pragma compile_time_error ((pathAnim'size / 8) /= 48 + 4, "p a not correct size");
+   unused_path_anim_size_test : pathAnim (dr);
+   pragma compile_time_error (unused_path_anim_size_test'size / 8 /= 48 + 4, "p a not correct size");
 
    --  ds after
    type emitter_type is record
@@ -336,142 +338,6 @@ procedure bin_test is
    end as_int32;
 
 
--- 
---    function read_strings
---      (ifd     : sio.file_type;
---       istream : sio.stream_access) return string_list_access
---    is
---       temp : string (1 .. 255);
---       char_index : positive := 1;
--- 
---       str_count : natural := 0;
---       strings : string_list_access;
--- 
---       saved_index : constant sio.positive_count := sio.index (ifd);
--- 
---    begin
--- 
---       loop
---          character'read (istream, temp (1));
--- 
---          if temp (1) = character'val (0) then
---             str_count := str_count + 1;
---          end if;
--- 
---          exit when sio.end_of_file (ifd);
--- 
---       end loop;
--- 
---       --  ! check if str_count 0?
---       strings := new string_list (1 .. positive (str_count));
---       sio.set_index (ifd, saved_index);
--- 
--- 
---       for str_index in strings'range loop
---          character'read (istream, temp (char_index));
--- 
---          if temp (char_index) = character'val (0) then
--- 
---             --  !  includes null
---             strings (positive (str_count)) :=
---               new string'(temp (temp'first .. char_index));
--- 
---          end if;
--- 
---          char_index := char_index + 1;
--- 
---          exit when sio.end_of_file (ifd);
--- 
---       end loop;
--- 
---       return strings;
--- 
---    end read_strings;
--- 
-
-
---    function count_string_lengths
---      (ifd     : sio.file_type;
---       istream : sio.stream_access) return int32_array_access
---    is
---       char : character;
---       str_count : int32 := 1;
---       lengths : int32_array (0 .. 499) := (others => 0);
--- 
---    begin
---       put_line ("count string length");
--- 
---       loop
---          character'read (istream, char);
--- 
---          lengths (str_count) := lengths (str_count) + 1;
--- 
---          exit when sio.end_of_file (ifd);
--- 
---          if char = character'val (0) then
---             put_line ("str count" & str_count'image &  "  length" & lengths (str_count)'image);
---             str_count := str_count + 1;
---          end if;
--- 
---       end loop;
--- 
---       pragma assert (str_count <= lengths'last);
--- 
---       return new int32_array'(lengths (0 .. str_count - 1));
--- 
---    end count_string_lengths;
--- 
-
-
-
-
-
--- 
---    package string_vectors is new ada.containers.indefinite_vectors
---      (index_type => nint32,
---       element_type => string);
-
-
-
---    procedure read_string_area
---      (ifd     : sio.file_type;
---       istream : sio.stream_access;
---       sv : in out string_vectors.vector)
---    is
---       s : string (1 .. 255);
---       si : positive := s'first;
--- 
---    begin
---       put_line ("read string area");
--- 
---       loop
---          character'read (istream, s (si));
--- 
---          --lengths (str_count) := lengths (str_count) + 1;
--- 
---          if s (si) = character'val (0) then
---             --put_line ("str count" & str_count'image &  "  length" & lengths (str_count)'image);
---             sv.append (s (s'first .. si));
---             si := s'first;
---          end if;
--- 
---          exit when sio.end_of_file (ifd);
--- 
---          si := si + 1;
---          --str_count := str_count + 1;
--- 
---       end loop;
--- 
---       --pragma assert (str_count <= lengths'last);
--- 
---    end read_string_area;
--- 
--- 
-
-
-
-
-
 
 
    subtype nint32 is int32 range 0 .. int32'last;
@@ -481,9 +347,15 @@ procedure bin_test is
      (index_type => nint32,
      element_type => instanceRef);
 
+
    package instance_vectors is new ada.containers.vectors
      (index_type => nint32,
      element_type => instance_type);
+
+   function "<" (left, right : instance_type) return boolean
+     is (left.referenceId < right.referenceId);
+
+   package iv_sorting is new instance_vectors.generic_sorting;
 
 
    package dependentRef_vectors is new ada.containers.vectors
@@ -587,17 +459,6 @@ procedure bin_test is
      (index_type => nint32,
      element_type => so_info_t);
 
--- 
---    package ui32_vectors is new ada.containers.vectors
---      (index_type => nint32,
---      element_type => ui32);
-
---    function already_wr (so_info : in out so_info_vectors.vector; ci : nint32; value : ui32) is
---    begin
---       for info of so_info loop
---          if info.
---       end loop;
---    end already_wr;
 
 
 --    type instanceRef_array is array (int32 range <>) of instanceRef;
@@ -640,10 +501,7 @@ procedure bin_test is
 
       --strings : string_vectors.vector;
 
-      --  !  string offsets of ifd, offset locations of ofd
-      --string_offsets : ui32_vectors.vector;
-      --offset_locations : ui32_vectors.vector;
-
+      --  !  string offset values of ifd, offset locations of ofd
       so_info : so_info_vectors.vector;
 
    end record;
@@ -712,8 +570,9 @@ procedure bin_test is
       --prev_inst_index
       previous_inst_id : int32 := 0;
 
+      inst_offset_accum : int32 := 0;
 
-      saved_index : sio.positive_count;
+      instance_index : int32 := 0;
 
    begin
       put_line ("read");
@@ -821,27 +680,6 @@ procedure bin_test is
 
       pragma assert (ob.path_anim_root.count = ob.path_anim_root.numPathAnim);
 
-      --  !  have to know how many pathAnim have emitters for finding
-      --     name string offset in advance
-      --
-      --    if input and output ds .. dr and numPathAnim > 0 have to jump
-      --    to each pathAnim to read numEmitter from file for name offset
-      --
-      --  ! ds and after
---       if ik in ds .. dr and oK in ds .. dr and obpath_anim_root.count > 0 then
---          saved_index := sio.index (ifd);
---          sio.set_index (ifd, sio.positive_count (path_anim_root.pathAnimOffset + 1));
--- 
---          for pa_index in 0 .. path_anim_root.count - 1 loop
---             pathAnim'read (istream, path_anim);
---             pathAnim_emitter_info'read (istream, emitter_info);
---             --  ! no change if numEmitter 0
---             emitter_total := emitter_total + emitter_info.numEmitter;
---          end loop;
--- 
---          sio.set_index (ifd, saved_index);
---       end if;
-
 
       --  ! instanceref
 
@@ -859,8 +697,6 @@ procedure bin_test is
          goto skip_instance_ref;
       end if;
 
-      --ob.string_offsets.reserve_capacity (count_type (num_iref * 2));
-
 
       for iref_index in 0 .. num_iref - 1 loop
 
@@ -869,12 +705,12 @@ procedure bin_test is
          --  !  should never be FFFFFFFF
          pragma assert (instance_ref.fileNameOffset /= 16#FFFFFFFF#);
          pragma assert (instance_ref.fileNameOffset /= 0);
-         --ob.string_offsets.append (instance_ref.fileNameOffset);
 
 
          if ik in d3 .. dr then
             int32'read (istream, instance_ref.referenceId);
             pragma assert (iref_index = instance_ref.referenceId);
+            -- !  also tests order, should always be in order unlike inst
          else
             --  ! separate var?
             instance_ref.referenceId := iref_index;
@@ -906,6 +742,7 @@ procedure bin_test is
 
                pragma assert (instance_ref.renderTypeOffset = 16#FFFFFFFF#);
 
+               --  ! use instanceList.numInstance?
                ob.act_total_instances :=
                  ob.act_total_instances + instance_ref.numInstances;
 
@@ -930,6 +767,8 @@ procedure bin_test is
 
          end case;
 
+         pragma assert (instance_ref.maxInstances > 0);
+         pragma assert (instance_ref.numInstances >= 0);  --  ! default 0
 
          ob.instance_refs.append (instance_ref);
 
@@ -942,46 +781,6 @@ procedure bin_test is
 
       end loop;
 
-
---       saved_index := sio.index (ofd);
---       sio.set_index (ofd, 77);  --  ! 76, + 1 to make 1 based
---       --  !  num inst in file
---       int32'write (ostream, numInst_accum);
-
-
---       for iref_index in fn_offsets'range loop
--- 
---          put_line ("f index " &  fn_offsets (iref_index)'image);
---          sio.set_index (ofd, fn_offsets (iref_index));
--- 
---          put_line ("s l" & name_lengths (iref_index)'image);
--- 
---          int32'write (ostream,
---            iref_offsets (oK) +
---            (num_iref * iref_sizes (oK)) +  --  size of all instanceRef
--- 
---             --  !! really broken? numInstance not present when iK certain value?
---            --(instance_list.numInstance * instance_sizes (oK)) +  --  size of all instances
---            (numInst_accum * instance_sizes (oK)) +  --  size of all instances
--- 
---            --  product 0 if no dependentList
---            (dependent_list.referenceNum * 44) +
---            (dependent_list.instanceNum * 12) +
---            --  product 0 if no pathAnimRoot
---            (path_anim_root.numPathAnim * pathAnim_size (oK)) +
---            (emitter_total * emitter_size (oK)) +
---            --  length of str before and null is offset to next,
---            --  length 0 for first (index 0) str
--- 
---             --  !! broken,  0 index already has 0
---            --(if iref_index = 0 then 0 else name_lengths (iref_index))
---            name_lengths (iref_index)
---          );
--- 
---       end loop;
--- 
---       sio.set_index (ofd, saved_index);
--- 
 
       --  instance
 
@@ -1008,6 +807,7 @@ procedure bin_test is
       put_line ("instance_refs.length" & ob.instance_refs.length'image);
       put_line ("instance_refs.last_index" & ob.instance_refs.last_index'image);
 
+
       if iK in d3 .. dr then
  
          --  d3, ds, g2, ga, dr
@@ -1019,19 +819,36 @@ procedure bin_test is
             put_line ("instance reference id" & instance.referenceId'image);
             put_line ("instance instance id" & instance.instanceId'image);
 
+
+            --  !  rewrite instances in order of instance refs to see if will still work?
+            --  !   remove assert for d2 ..  f1_others renderTypeOffset (735)
+
+            --   !  tests if instances are in same order as irefs
+            if inst_index > 0 then
+               pragma assert (instance.instanceId > ob.instances.last_element.instanceId);
+               --pragma assert (instance.referenceId >= ob.instances.last_element.referenceId);
+            end if;
+
             --  ! correct?
             declare
                irr : instanceRef_vectors.reference_type :=
                  ob.instance_refs.reference (instance.referenceId);
             begin
+
+               pragma assert (irr.referenceId = instance.referenceId);
+
                irr.numInstances := irr.numInstances + 1;
             end;
 
+            --  ! should be in order, but some iref only have instances in object.ens
+            --  old:
             --  !!   instances not in order
 --                pragma assert (instance.referenceId = iref.referenceId,
 --                  "instance rid" & instance.referenceId'image &
 --                  "   iref rid" & iref.referenceId'image);
 
+            --  !  instanceid can start at any number depending on if first irefs
+            --     are for ornaments with physics in objects.ens
 --             pragma assert (instance.instanceId = inst_index,
 --               "instance i_id" & instance.instanceId'image &
 --               "   inst index" & inst_index'image);
@@ -1095,14 +912,31 @@ procedure bin_test is
 
          for instance_ref of ob.instance_refs loop
 
+            --   !  skip second loop if numInstances 0?
+            --   !  offset_accum + numInstances li?
+
+            put_line ("ir offset " & instance_ref.offset'image);
+
             put_line ("act num instance of ir"
               & instance_ref.numInstances'image);
 
             --  !  goto over loop if no instances? behavior same?
 
-            for inst_index in previous_inst_id .. instance_ref.numInstances
-              + previous_inst_id - 1
-            loop
+            if instance_ref.numInstances = 0 then
+               goto continue;
+            end if;
+
+            --   !  tests if instances are in same order of irefs
+--             put_line ("ir iof " & instance_ref.instancesOffset'image & ascii.lf
+--               & "ifd index" & sio.positive_count'image (sio.index (ob.ifd) - 1));
+            pragma assert (instance_ref.instancesOffset = int32 (sio.index (ob.ifd)) - 1);
+
+            for inst_index in instance_ref.offset .. instance_ref.offset + instance_ref.numInstances - 1 loop
+--             for inst_index in previous_inst_id .. instance_ref.numInstances
+--               + previous_inst_id - 1
+--             loop
+
+               instance_index := instance_index + 1;
 
                --  !  instanceRef referenceId manually added to iK without it
                put_line ("reference id" & instance_ref.referenceId'image);
@@ -1118,6 +952,7 @@ procedure bin_test is
                rgba'read (istream, instance.color);
 
                if iK /= rdg then
+               --  d2, f1_others. f1_2010
                   int32'read (istream, instance.godRayGroup);
                   int32'read (istream, instance.dynamic);
 
@@ -1137,11 +972,13 @@ procedure bin_test is
 
             end loop;  --  instance loop
 
-            --  !  val may be 0 or FFFFFFFF if not in ik
-            --ob.string_offsets.append (instance.todSpecificOffset);
-            --ob.string_offsets.append (instance.piaoTextureOffset);
 
-            previous_inst_id := previous_inst_id + instance_ref.numInstances;
+            <<continue>>
+
+            pragma assert (instance_ref.numInstances = instance_index);
+            instance_index := 0;
+
+            --previous_inst_id := previous_inst_id + instance_ref.numInstances;
 
             new_line (1);
 
@@ -1149,14 +986,13 @@ procedure bin_test is
 
       end if;
 
-         --  !  starts at 0, instanceNum, maxInstances of curr instanceRef
-         --     start id of next
---          previous_inst_id := previous_inst_id + iref.numInstances;
-
---       end loop;  --  iref loop
 
       put_line ("act total instance" & ob.act_total_instances'image & "   instance.length" & ob.instances.length'image);
       pragma assert (ob.act_total_instances = int32 (ob.instances.length));
+
+      --  !  sort referenceId <
+      --iv_sorting.sort (ob.instances);
+      --put_line ("SORT");
 
 
       --  !  make loop implicitly not enter if 0 iref
@@ -1181,8 +1017,6 @@ procedure bin_test is
          pragma assert (dref.fileNameOffset /= 0);
          pragma assert (dref.dependentTypeOffset /= 16#FFFFFFFF#);
          pragma assert (dref.dependentTypeOffset /= 0);
-         --ob.string_offsets.append (dependent_ref.fileNameOffset);
-         --ob.string_offsets.append (dependent_ref.dependentTypeOffset);
 
          pragma assert (dref.referenceId = dref_index);
          ob.dependent_refs.append (dref);
@@ -1224,7 +1058,6 @@ procedure bin_test is
             --  !  should never be FFFFFFFF
             pragma assert (path_anim.animClipNameOffset /= 16#FFFFFFFF#);
             pragma assert (path_anim.animClipNameOffset /= 0);
-            --ob.string_offsets.append (path_anim.animClipNameOffset);
 
             pragma assert (path_anim.id = pa_index);
             --  ! emitterOffset, numEmitter only present after ds
@@ -1252,7 +1085,6 @@ procedure bin_test is
          --  !  should never be FFFFFFFF
          pragma assert (emitter.nameOffset /= 16#FFFFFFFF#);
          pragma assert (emitter.nameOffset /= 0);
-         --ob.string_offsets.append (emitter.nameOffset);
 
          ob.emitters.append (emitter);
       end loop;
@@ -1283,6 +1115,12 @@ procedure bin_test is
       act_num_instances_accum : int32 := 0;
       --  ! offset accumulate
       offset_accum : int32 := 0;
+
+
+      instance_nums : array (0 .. ob.instance_refs.last_index) of int32 :=
+        (others => 0);
+
+      --inst_index : int32 := 0;
 
 
    begin
@@ -1483,8 +1321,17 @@ procedure bin_test is
          case ok is
 
             when d3 .. dr =>
+               put_line ("ir sponsor " & instance_ref.sponsor'image);
                int32'write (ostream, instance_ref.sponsor);  --  default 0
                int32'write (ostream, instance_ref.prebakedShadows); --  default 0
+
+
+               --  !  instanceTag different from instanceid?
+               --  !  ds track?
+               --  !  other d2 track?
+               --   !  use numInstance for maxInstances? use act num inst for totalInstances?
+               --  !  sponsor 0?
+               --  !  color?
 
                --  !   seems to be same as old? (not neccessarily num of instances in file)
                int32'write (ostream, instance_ref.maxInstances);  --  all (not actual num in file)
@@ -1592,9 +1439,15 @@ procedure bin_test is
       put_line ("INSTANCES length" & ob.instances.length'image);
 
 
+      --  ! how to check if instances in d3 .. dr in order?
+
       for instance of ob.instances loop
 
          put_line ("inst id" & instance.instanceId'image);
+         put_line ("r id" & instance.referenceId'image);
+         instance_nums (instance.referenceId) :=
+           instance_nums (instance.referenceId) + 1;
+
 
          if oK in rdg | d2 | f1_2010 | f1_others then
 
@@ -1641,7 +1494,7 @@ procedure bin_test is
             --  ! instangeTag
             --
             --  !  instanceTag is instanceId if iK rdg | d2 | f1_2010 | f1_others
-            
+
             int32'write (ostream, instance.instanceTag);
 
             ob.so_info.append ((sio.index (ofd), instance.todSpecificOffset, sok_todSpecific));
@@ -1654,14 +1507,6 @@ procedure bin_test is
             if ok in g2 ..dr then
                ob.so_info.append ((sio.index (ofd), instance.piaoTextureOffset, sok_piaoTexture));
                ui32'write (ostream, instance.piaoTextureOffset);  --  ! default FFFFFFFF
---                if ob.iK = g2 and oK in ga | dr then
---                   ui32'write (ostream, instance.piaoTextureOffset + 4);
---                elsif ob.ik in ga | dr and oK = g2 then
---                   ui32'write (ostream, instance.piaoTextureOffset - 4);
---                else
---                --  ! ik does not have piaoTextureOffset
---                   ui32'write (ostream, instance.piaoTextureOffset);  --  ! default FFFFFFFF
---                end if;
 
                --  !  only ever seen 0
                int32'write (ostream, instance.atlasU);
@@ -1682,6 +1527,17 @@ procedure bin_test is
 
       end loop;  --  instance loop
 
+      --  ! checks if number of inst written per iref matches numInstances of iref
+      for iref_index in instance_nums'range loop
+         declare
+            irr : instanceRef_vectors.reference_type :=
+              ob.instance_refs.reference (iref_index);
+         begin
+            put_line ("act nI" & irr.numInstances'image &
+              "    written nI" & instance_nums (iref_index)'image);
+            pragma assert (irr.numInstances = instance_nums (iref_index));
+         end;
+      end loop;
 
       <<skip_instance_ref>>
 
@@ -1754,81 +1610,6 @@ procedure bin_test is
 
 
 
-
-   function read_nt_string (istream : sio.stream_access) return string is
-      s : string (1 .. 255);
-      si : positive := s'first;
-
-   begin
-      put_line ("read nt string");
-
-      loop
-         character'read (istream, s (si));
-
-         if s (si) = character'val (0) then
-            --put_line ("str count" & str_count'image &  "  length" & lengths (str_count)'image);
-            return s (s'first .. si);
-         end if;
-
-         --exit when sio.end_of_file (ifd);
-
-         si := si + 1;
-         --str_count := str_count + 1;
-
-      end loop;
-
-      --  ! should never reach here
-      pragma assert (false);
-
-      return "";
-
-   end read_nt_string;
-
-
-
-
-   function read_nt_string (ifd : sio.file_type; pos : ui32) return string is
-
-      istream : constant sio.stream_access := sio.stream (ifd);
-
-      s : string (1 .. 255);
-      si : positive := s'first;
-
-      saved_index : constant sio.positive_count := sio.index (ifd);
-
-   begin
-      put_line ("read nt string at offset");
-
-      sio.set_index (ifd, sio.positive_count (pos + 1));
-
-      loop
-         character'read (istream, s (si));
-
-         if s (si) = character'val (0) then
-            --put_line ("str count" & str_count'image &  "  length" & lengths (str_count)'image);
-            sio.set_index (ifd, saved_index);
-            return s (s'first .. si);
-         end if;
-
-         --exit when sio.end_of_file (ifd);
-
-         si := si + 1;
-         --str_count := str_count + 1;
-
-      end loop;
-
-      --  ! should never reach here
-      pragma assert (false);
-
-      sio.set_index (ifd, saved_index);
-
-      return "";
-
-   end read_nt_string;
-
-
-
-
    procedure update_string_offsets (ob : in out o_b_type) is
 
       ifd_first_string_offset : ui32 renames
@@ -1852,11 +1633,15 @@ procedure bin_test is
 
    begin
 
-      if ob.ik /= ob.oK or else
-        (ob.ik not in d2 | f1_others and
-         ob.oK not in d2 | f1_others)
+      if ob.ik = ob.oK
+      or
+        (ob.ik in d2 | f1_others and
+         ob.oK in d2 | f1_others)
+      or
+        (ob.ik in ga | dr and
+         ob.oK in ga | dr)
       then
-         pragma assert (sa_diff /= 0);
+         pragma assert (sa_diff = 0);
       end if;
 
       --  !  all string copied to output
@@ -2037,7 +1822,6 @@ procedure bin_test is
        );
 
 
-   --type int32_array is array (positive range <>) of int32;
 
    procedure s_h is
    begin
