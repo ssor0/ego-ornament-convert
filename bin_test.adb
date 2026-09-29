@@ -558,7 +558,6 @@ procedure bin_test is
 
       num_iref : int32 := -1;
 
-      --instance_ref : instanceRef_vectors.reference_type;
       instance_ref : instanceRef;
       instance : instance_type;
 
@@ -567,7 +566,6 @@ procedure bin_test is
 
       emitter : emitter_type;
 
-      --prev_inst_index
       previous_inst_id : int32 := 0;
 
       inst_offset_accum : int32 := 0;
@@ -703,9 +701,7 @@ procedure bin_test is
 
                --   !  used in d3 michigan r0
                --pragma assert (instance_ref.renderTypeOffset = 16#FFFFFFFF#, "ir instance renderTypeOffset:  " & instance_ref.renderTypeOffset'image);
-
-               --  !  (not present, maxInstances still not actual num)
-               --instance_ref.numInstances := instance_ref.maxInstances;
+               pragma assert (instance_ref.renderTypeOffset /= 0);
 
             when d2 .. f1_others =>
                int32'read (istream, instance_ref.sponsor);
@@ -716,7 +712,8 @@ procedure bin_test is
                int32'read (istream, instance_ref.numInstances);
                ui32'read (istream, instance_ref.renderTypeOffset);
 
-               pragma assert (instance_ref.renderTypeOffset = 16#FFFFFFFF#);
+               --  ! not seen yet
+               pragma assert (instance_ref.renderTypeOffset /= 0);
 
                --  ! use instanceList.numInstance?
                ob.act_total_instances :=
@@ -735,8 +732,8 @@ procedure bin_test is
                --  ! used in rdg det r0
                pragma assert (instance_ref.renderTypeOffset /= 0);
 
-               int32'read (istream, instance_ref.prebakedShadows);  --  !  not confirmed
-               --int32'read (istream, instance_ref.unknown);
+               int32'read (istream, instance_ref.prebakedShadows);  --  !  not confirmed, but always 0 or 1
+               --int32'read (istream, instance_ref.unknown)
 
                ob.act_total_instances :=
                  ob.act_total_instances + instance_ref.numInstances;
@@ -748,13 +745,6 @@ procedure bin_test is
 
          ob.instance_refs.append (instance_ref);
 
-         --  !
-         --  ! fails, not same
-         --pragma assert (iK in rdg .. f1_others and instance_ref.maxInstances = instance_ref.numInstances);
---          iref_instance_nums (iref_index) := instance_ref.numInstances; --instance_ref.maxInstances;
---          inum_accum := inum_accum + instance_ref.maxInstances;
---          numInst_accum := numInst_accum + instance_ref.numInstances;
-
       end loop;
 
 
@@ -764,21 +754,6 @@ procedure bin_test is
 
       pragma assert (num_iref = int32 (ob.instance_refs.length));
 
---       for iref of ob.instance_refs loop
--- 
---          put_line ("iref id" & iref.referenceId'image);
---          if ik in d3 .. dr then
---             put_line ("inst count (not accurate)" & iref.maxInstances'image);
---          else
---             put_line ("inst count" & iref.numInstances'image);
---          end if;
-
-         --  inst id
-         --for inst_index in previous_inst_id .. previous_inst_id + iref_instance_nums (iref_index) - 1
-         --  !  place start index in each ir?
-         --for inst_index in 0 .. ob.act_total_instances - 1
-           --previous_inst_id .. (iref.numInstances - 1) + previous_inst_id
-         --loop
 
       put_line ("instance_refs.length" & ob.instance_refs.length'image);
       put_line ("instance_refs.last_index" & ob.instance_refs.last_index'image);
@@ -797,15 +772,15 @@ procedure bin_test is
 
 
             --  !  rewrite instances in order of instance refs to see if will still work?
-            --  !   remove assert for d2 ..  f1_others renderTypeOffset (735)
 
             --   !  tests if instances are in same order as irefs
             if inst_index > 0 then
+               --  !  inst are in order by inst id but not ref id
                pragma assert (instance.instanceId > ob.instances.last_element.instanceId);
                --pragma assert (instance.referenceId >= ob.instances.last_element.referenceId);
             end if;
 
-            --  ! correct?
+
             declare
                irr : instanceRef_vectors.reference_type :=
                  ob.instance_refs.reference (instance.referenceId);
@@ -846,13 +821,12 @@ procedure bin_test is
             --instance.instanceTag := inst_index;
 
             ui32'read (istream, instance.todSpecificOffset);
-            ui32'read (istream, instance.modeLayerOffset);
+            pragma assert (instance.todSpecificOffset /= 0);
 
             --  !  string offset to specific game mode (seen in d3 bat)
-            --put_line ("instance modeLayerOffset" & instance.modeLayerOffset'image);
-            --pragma assert (instance.modeLayerOffset = 16#FFFFFFFF#);
+            ui32'read (istream, instance.modeLayerOffset);
+            pragma assert (instance.modeLayerOffset /= 0);
 
-            pragma assert (instance.offsetSkyMap = 0);
 
             --  g2, ga, dr
             if ik in g2 ..dr then
@@ -863,18 +837,13 @@ procedure bin_test is
                int32'read (istream, instance.atlasH);
                ui32'read (istream, instance.hueShiftIdOffset);
 
-               --put_line ("instance hueShiftIdOffset" & instance.hueShiftIdOffset'image);
-               --pragma assert (instance.hueShiftIdOffset = 16#FFFFFFFF#);
-
-               --if instance.piaoTextureOffset /= 16#FFFFFFFF# then
-               --ob.string_offsets.append (instance.piaoTextureOffset);
-               --end if;
+               pragma assert (instance.hueShiftIdOffset /= 0);
+               pragma assert (instance.piaoTextureOffset /= 0);
 
                --  ga, dr
                if ik in ga | dr then
                   ui32'read (istream, instance.sponsorHueShiftIdOffset);
-                  put_line ("instance sponsorHueShiftIdOffset" & instance.sponsorHueShiftIdOffset'image);
-                  --pragma assert (instance.sponsorHueShiftIdOffset = 16#FFFFFFFF#);
+                  pragma assert (instance.sponsorHueShiftIdOffset /= 0);
                end if;
 
             end if;
@@ -888,7 +857,7 @@ procedure bin_test is
 
          for instance_ref of ob.instance_refs loop
 
-            --   !  skip second loop if numInstances 0?
+
             --   !  offset_accum + numInstances li?
 
             put_line ("ir offset " & instance_ref.offset'image);
