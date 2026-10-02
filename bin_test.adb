@@ -2,6 +2,7 @@ with system;
 with system.memory;
 
 with ada.text_io; use ada.text_io;
+--with ada.float_text_io; use ada.float_text_io;
 with ada.command_line;
 with ada.directories;
 with ada.streams.stream_io;
@@ -26,9 +27,25 @@ procedure bin_test is
    use type sio.count;
 
 
+   procedure dprintf
+     (fd     : in integer;
+      format : in string;
+      rot_xx, rot_xy, rot_xz, rot_xw,
+      rot_yx, rot_yy, rot_yz, rot_yw,
+      rot_zx, rot_zy, rot_zz, rot_zw,
+      pos_x,  pos_y,  pos_z,  pos_w : in float)
+   with import, convention => c_variadic_2;
+
+
    subtype int32 is integer;
    type int32_array is array (int32 range <>) of int32;
    type int32_array_access is access int32_array;
+
+--    function "+" (right : int32) return int32 is
+--      (right + 1) with inline;
+-- 
+--    function "-" (right : int32) return int32 is
+--      (right - 1) with inline;
 
    subtype int16 is integer_16;
    subtype ui8 is unsigned_8;
@@ -467,6 +484,8 @@ procedure bin_test is
 --    type instance_array is array (int32 range <>) of instance_type;
 --    type instance_array_access is access instance_array;
 
+   type itag_option is (same, inc, dec, inst_id);
+
    type o_b_type is record
       ik : gm;
       ifd : sio.file_type;  --  !  may be param
@@ -475,6 +494,14 @@ procedure bin_test is
       oK : gm;
       ofd : sio.file_type;
       ostream : sio.stream_access;
+
+      ens_ifd : ada.text_io.file_type;
+      ens_ofd : ada.text_io.file_type;
+
+      --  ! args
+      sort_by_iref : boolean := false;  -- ! older games already sorted
+      itag_behav : itag_option := inst_id;
+      ----
 
       version : int32;  --  always 0
 
@@ -498,8 +525,6 @@ procedure bin_test is
       total_emitters : int32 := 0;  --  ! not original
 
       emitters : emitter_vectors.vector;
-
-      --strings : string_vectors.vector;
 
       --  !  string offset values of ifd, offset locations of ofd
       so_info : so_info_vectors.vector;
@@ -539,10 +564,11 @@ procedure bin_test is
       ds .. dr => 48,  --  ds, g2, ga, dr
       others => 0);
 
-   emitter_size : constant array (gm) of int32 :=
-     (d3 => 0,
-      ds .. dr => 60, --  ds, g2, ga, dr
-      others => 0);
+--  unused
+--    emitter_size : constant array (gm) of int32 :=
+--      (d3 => 0,
+--       ds .. dr => 60, --  ds, g2, ga, dr
+--       others => 0);
 
 
 
@@ -566,9 +592,9 @@ procedure bin_test is
 
       emitter : emitter_type;
 
-      previous_inst_id : int32 := 0;
+      --previous_inst_id : int32 := 0;
 
-      inst_offset_accum : int32 := 0;
+      itag_val : int32;
 
       instance_index : int32 := 0;
 
@@ -655,12 +681,11 @@ procedure bin_test is
       pragma assert (ob.path_anim_root.count = ob.path_anim_root.numPathAnim);
 
 
-      --  ! instanceref
-
-      ob.instance_refs.reserve_capacity (count_type (num_iref));
-
+      --   instanceref
 
       put_line ("instance ref");
+
+      ob.instance_refs.reserve_capacity (count_type (num_iref));
 
       --  ! - 1 to make 0 based
       pragma assert (int32 (sio.index (ifd)) - 1 = iref_offsets (ik));
@@ -668,9 +693,9 @@ procedure bin_test is
 
       if num_iref = 0 then
          put_line ("no instance ref");
-         goto skip_instance_ref;
       end if;
 
+      --  !  loop isnt run if num_iref = 0
 
       for iref_index in 0 .. num_iref - 1 loop
 
@@ -752,6 +777,14 @@ procedure bin_test is
 
       put_line ("act total instances" & ob.act_total_instances'image);
 
+      --  !! will fail if empty instance list?
+      pragma assert (ob.act_total_instances > 0);
+
+      itag_val := (case ob.itag_behav is
+        when inc => 0,
+        when dec => ob.act_total_instances,
+        when others => 0);
+
       pragma assert (num_iref = int32 (ob.instance_refs.length));
 
 
@@ -760,7 +793,9 @@ procedure bin_test is
 
 
       if iK in d3 .. dr then
- 
+
+         --  loop not run if 0 ir and inst
+
          --  d3, ds, g2, ga, dr
          for inst_index in 0 .. ob.act_total_instances - 1 loop
 
@@ -855,31 +890,32 @@ procedure bin_test is
       else
       --  rdg | d2 | f1_2010 | f1_others
 
-         for instance_ref of ob.instance_refs loop
+         --  loop is not run if 0 ir
 
+         for instance_ref of ob.instance_refs loop
 
             --   !  offset_accum + numInstances li?
 
             put_line ("ir offset " & instance_ref.offset'image);
-
             put_line ("act num instance of ir"
               & instance_ref.numInstances'image);
 
-            --  !  goto over loop if no instances? behavior same?
 
-            if instance_ref.numInstances = 0 then
-               goto continue;
+            if instance_ref.numInstances > 0 then
+               --   !  instances are in same order of irefs in older games,
+               --      makes sure pos in input fd is same as iref offset to instances.
+               pragma assert (instance_ref.instancesOffset = int32 (sio.index (ob.ifd)) - 1);
             end if;
 
-            --   !  tests if instances are in same order of irefs
---             put_line ("ir iof " & instance_ref.instancesOffset'image & ascii.lf
---               & "ifd index" & sio.positive_count'image (sio.index (ob.ifd) - 1));
-            pragma assert (instance_ref.instancesOffset = int32 (sio.index (ob.ifd)) - 1);
+            --  loop is not run if instance_ref.numInstances is 0
 
-            for inst_index in instance_ref.offset .. instance_ref.offset + instance_ref.numInstances - 1 loop
---             for inst_index in previous_inst_id .. instance_ref.numInstances
---               + previous_inst_id - 1
---             loop
+            for inst_index in instance_ref.offset .. instance_ref.offset +
+              instance_ref.numInstances - 1
+            loop
+
+            --  !  previous 0 indexed loop range
+            --inst_index in previous_inst_id .. instance_ref.numInstances
+            --  + previous_inst_id - 1
 
                instance_index := instance_index + 1;
 
@@ -888,10 +924,25 @@ procedure bin_test is
                put_line ("instance id" & inst_index'image);
                --put_line ("instances l " & ob.instances.length'image);
 
-            --  !  instanceRef referenceId manually added to iK without it
                instance.referenceId := instance_ref.referenceId;
                instance.instanceId := inst_index;
-               instance.instanceTag := inst_index;
+
+               case ob.itag_behav is
+                  when inst_id => instance.instanceTag := inst_index;
+                     --  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                     --  !! this is not in order, issue? do instance tags also skip
+                     --     values when some inst are only entities?
+                     --
+                     --  !!  objects.ens does not have itag
+                     -- 
+                  when same => instance.instanceTag := 53124;
+
+                  when inc  => instance.instanceTag := itag_val;
+                               itag_val := itag_val + 1;
+
+                  when dec  => instance.instanceTag := itag_val;
+                               itag_val := itag_val - 1;
+               end case;
 
                matrix4_3'read (istream, instance.transform);
                rgba'read (istream, instance.color);
@@ -917,13 +968,10 @@ procedure bin_test is
 
             end loop;  --  instance loop
 
-
-            <<continue>>
-
+            --  ! test if number of instances read (instance_index) is same as
+            --    number of instances iref has
             pragma assert (instance_ref.numInstances = instance_index);
             instance_index := 0;
-
-            --previous_inst_id := previous_inst_id + instance_ref.numInstances;
 
             new_line (1);
 
@@ -936,12 +984,11 @@ procedure bin_test is
       pragma assert (ob.act_total_instances = int32 (ob.instances.length));
 
       --  !  sort referenceId <
-      --iv_sorting.sort (ob.instances);
-      --put_line ("SORT");
-
-
-      --  !  make loop implicitly not enter if 0 iref
-      <<skip_instance_ref>>
+      --  !   > too?
+      if ob.sort_by_iref then
+         iv_sorting.sort (ob.instances);
+         put_line ("SORT");
+      end if;
 
 
       --   dependentRef
@@ -1040,8 +1087,6 @@ procedure bin_test is
       pragma assert (ui32 (sio.index (ifd)) - 1 =
         ob.instance_refs.first_element.fileNameOffset,
           "first fileNameOffset does not match ifd index");
-
-      --   !  length of str area?
 
    end read;
 
@@ -1622,6 +1667,30 @@ procedure bin_test is
 
 
 
+   procedure update_ens (ob : in out o_b_type) is
+
+      tbei_tag : constant string := "<TEMPLATEBASICENTITYINSTANCE";
+      tei_tag : constant string := "<TEMPLATEENTITYINSTANCE";
+      tt_tag : constant string := "<TEMPLATETRANSFORM>";
+
+      line : string (1 .. 500);
+      last : natural;
+
+   begin
+      loop
+         get_line (ob.ens_ifd, line, last);
+         --  !!  last 0
+         if line (tbei_tag'range) = tbei_tag then
+            put_line (tbei_tag);
+            --  ! next inst
+         elsif line (tei_tag'range) = tei_tag then
+            put_line (tei_tag);
+         end if;
+
+         --  ! eof
+         --  !  end of instances?
+      end loop;
+   end update_ens;
 
 
    function find (sub : in string; str : in string) return boolean is
@@ -1771,8 +1840,38 @@ procedure bin_test is
    k_count : natural := 0;
 
 
+   function is_valid_num (s : string) return boolean is
+   begin
+      for c of s loop
+         if c not in '0' .. '9' then
+            return false;
+         end if;
+      end loop;
+      return true;
+   end is_valid_num;
+
+   function parse_itag_arg (index : positive) return boolean is
+   begin
+      if index + 1 > cli.argument_count then
+         put_line ("missing value for -itag");
+      else
+         if itag_option'valid_value (cli.argument (index + 1)) then
+            ob.itag_behav := itag_option'value (cli.argument (index + 1));
+            return true;
+         else
+            put_line ("invalid value for -itag");
+            for val in itag_option'range loop
+               put_line (val'image);
+            end loop;
+         end if;
+      end if;
+      return false;
+   end parse_itag_arg;
+
 begin
 
+   --put (312.199999999, aft => 9, exp => 0); new_line;
+   --   312.314453125
 --    put_line (as_float (val_i)'image);
 --    return;
 
@@ -1809,30 +1908,37 @@ begin
       s_h;
       return;
 
-   elsif not dir.exists (cli.argument (1)) or else
-      dir.kind (cli.argument (1)) /= dir.ordinary_file
-   then
-      put_line ("file """ & cli.argument (1) & """ not file");
-      return;
    end if;
 
 
+   --  options
+
    for a_index in 2 .. cli.argument_count loop
-      begin
-         if cli.argument (a_index) = "-ik" then
-            ob.iK := gm'value (cli.argument (a_index + 1));
-            k_count := k_count + 1;
-         elsif cli.argument (a_index) = "-ok" then
-            ob.oK := gm'value (cli.argument (a_index + 1));
-            k_count := k_count + 1;
+   begin
+
+      if cli.argument (a_index) = "-ik" then
+         ob.iK := gm'value (cli.argument (a_index + 1));
+         k_count := k_count + 1;
+
+      elsif cli.argument (a_index) = "-ok" then
+         ob.oK := gm'value (cli.argument (a_index + 1));
+         k_count := k_count + 1;
+
+      elsif cli.argument (a_index) = "-itag" then
+         if parse_itag_arg (a_index) = false then
+            return;
          end if;
 
-      exception
-         when constraint_error =>
-            put_line ("""" & cli.argument (a_index + 1) & """ invalid format");
-            s_h;
-            return;
-      end;
+      elsif cli.argument (a_index) = "-iref_sort" then
+         ob.sort_by_iref := true;
+      end if;
+
+   exception
+      when constraint_error =>
+         put_line ("""" & cli.argument (a_index + 1) & """ invalid format");
+         s_h;
+         return;
+   end;
    end loop;
 
    if k_count /= 2 then
@@ -1841,7 +1947,26 @@ begin
    end if;
 
 
-   if ob.ik = ob.oK or
+   --  file arg check
+
+   for file_arg in 5 .. cli.argument_count loop
+      if not  dir.exists (cli.argument (file_arg)) or else
+         not (dir.kind   (cli.argument (file_arg)) = dir.ordinary_file)
+      then
+         put_line ("""" & cli.argument (file_arg) & """ not a file");
+         return;
+      end if;
+   end loop;
+
+
+   --  format kind
+   if (ob.ik < d3 and ob.oK >= d3) and then
+      cli.argument_count < 6
+   then
+      put_line ("path to input objects.ens needed for older to newer");
+      return;
+
+   elsif ob.ik = ob.oK or
      (ob.ik in d2 | f1_others and
       ob.oK in d2 | f1_others)
    then
@@ -1849,10 +1974,33 @@ begin
    end if;
 
 
-   sio.open (ob.ifd, sio.in_file, cli.argument (1));
+   --  o
+   sio.open (ob.ifd, sio.in_file, cli.argument (5));
+   sio.create (ob.ofd, sio.out_file, "output_test.bin");
+
+   --  ens
+   if cli.argument_count >= 6 then
+      open (ob.ens_ifd, in_file, cli.argument (6));
+      create (ob.ens_ofd, out_file, "output_test.ens");
+
+      declare
+         xml_id : constant string := "<?xml";
+         b : string (1 .. 5);
+      begin
+         get (ob.ens_ifd, b);
+         if b /= xml_id then
+            put_line ("""" & cli.argument (6) & """ not xml file");
+            put_line ("first 5 char were """ & b & """");
+            return;
+         end if;
+         set_col (ob.ens_ifd, 1);
+      end;
+
+   end if;
+
+   --  
 --    sio.open (ifile, sio.in_file, cli.argument (1));
 --    sio.create (ofile, sio.out_file, "output_test");
-   sio.create (ob.ofd, sio.out_file, "output_test");
 
 --    iformat := d2;
 --    oformat := d3;
@@ -1871,6 +2019,8 @@ begin
          read (ob);
          write (ob);
          update_string_offsets (ob);
+
+         
 
       when trees_bin =>
          put_line ("t");
