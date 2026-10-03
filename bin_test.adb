@@ -2,9 +2,9 @@ pragma allow_integer_address;
 
 with system;
 with system.memory;
-with system.address_image;
+--with system.address_image;
 
-with ada.text_io;
+with ada.text_io; use ada.text_io;
 --with ada.float_text_io; use ada.float_text_io;
 with ada.command_line;
 with ada.directories;
@@ -32,37 +32,37 @@ procedure bin_test is
 
    verbose : boolean := false;
 
-   procedure put_line (s : in string) is
-   begin
-      case verbose is
-         when false => null;
-         when true => ada.text_io.put_line (s);
-      end case;
-   end put_line;
+--    procedure put_line (s : in string) is
+--    begin
+--       case verbose is
+--          when false => null;
+--          when true => ada.text_io.put_line (s);
+--       end case;
+--    end put_line;
+-- 
+--    procedure new_line (number : ada.text_io.positive_count) is
+--    begin
+--       case verbose is
+--          when false => null;
+--          when true => ada.text_io.new_line (number);
+--       end case;
+--    end new_line;
 
-   procedure new_line (number : ada.text_io.positive_count) is
-   begin
-      case verbose is
-         when false => null;
-         when true => ada.text_io.new_line (number);
-      end case;
-   end new_line;
 
-
-   procedure dprintf
-     (fd     : in integer;
-      format : in string;
-      rot_xx, rot_xy, rot_xz, rot_xw,
-      rot_yx, rot_yy, rot_yz, rot_yw,
-      rot_zx, rot_zy, rot_zz, rot_zw,
-      pos_x,  pos_y,  pos_z,  pos_w : in float)
-   with import, convention => c_variadic_2;
-
-   gnat_argv : System.Address;
-   pragma Import (C, gnat_argv, "gnat_argv");
-
-   function Len_Arg (Arg_Num : Integer) return Integer;
-   pragma Import (C, Len_Arg, "__gnat_len_arg");
+--    procedure dprintf
+--      (fd     : in integer;
+--       format : in string;
+--       rot_xx, rot_xy, rot_xz, rot_xw,
+--       rot_yx, rot_yy, rot_yz, rot_yw,
+--       rot_zx, rot_zy, rot_zz, rot_zw,
+--       pos_x,  pos_y,  pos_z,  pos_w : in float)
+--    with import, convention => c_variadic_2;
+-- 
+--    gnat_argv : System.Address;
+--    pragma Import (C, gnat_argv, "gnat_argv");
+-- 
+--    function Len_Arg (Arg_Num : Integer) return Integer;
+--    pragma Import (C, Len_Arg, "__gnat_len_arg");
 
    subtype int32 is integer;
    type int32_array is array (int32 range <>) of int32;
@@ -80,9 +80,9 @@ procedure bin_test is
 
 
    type cartesian_coord is (x, y, z, w);
-   subtype coord_2d is cartesian_coord range x .. y;
+--    subtype coord_2d is cartesian_coord range x .. y;
    subtype coord_3d is cartesian_coord range x .. z;
-   subtype coord_4d is cartesian_coord range x .. w;
+--    subtype coord_4d is cartesian_coord range x .. w;
 
    type transform_kind is (rotx, roty, rotz, pos);
 
@@ -375,17 +375,17 @@ procedure bin_test is
 
 
 
-   function as_float (v : in int32) return float is
-      r : float with address => v'address;
-   begin
-      return r;
-   end as_float;
-
-   function as_int32 (v : in float) return int32 is
-      r : int32 with address => v'address;
-   begin
-      return r;
-   end as_int32;
+--    function as_float (v : in int32) return float is
+--       r : float with address => v'address;
+--    begin
+--       return r;
+--    end as_float;
+-- 
+--    function as_int32 (v : in float) return int32 is
+--       r : int32 with address => v'address;
+--    begin
+--       return r;
+--    end as_int32;
 
 
 
@@ -598,12 +598,13 @@ procedure bin_test is
    --  f1_2010 = 64 (int16 landmarkOffset, sessionVis instead of int32 
 
 
-   pathAnim_size : constant array (gm) of int32 :=
-     (d3 => 40,
-      ds .. dr => 48,  --  ds, g2, ga, dr
-      others => 0);
+--  ! unused
+--    pathAnim_size : constant array (gm) of int32 :=
+--      (d3 => 40,
+--       ds .. dr => 48,  --  ds, g2, ga, dr
+--       others => 0);
 
---  unused
+--  ! unused
 --    emitter_size : constant array (gm) of int32 :=
 --      (d3 => 0,
 --       ds .. dr => 60, --  ds, g2, ga, dr
@@ -1889,17 +1890,20 @@ procedure bin_test is
       return false;
    end parse_itag_arg;
 
+
    function parse_iref_sort_arg (av : in string; index : positive) return boolean is
    begin
       sort_by_iref := true;
       return true;
    end parse_iref_sort_arg;
 
+
    function parse_v_arg (av : in string; index : positive) return boolean is
    begin
       verbose := true;
       return true;
    end parse_v_arg;
+
 
    function parse_fo_arg (av : in string; index : positive) return boolean is
       procedure put_line (s : in string) renames ada.text_io.put_line;
@@ -1997,18 +2001,20 @@ procedure bin_test is
        has_value => true,
        placeholder_val => +"<file.bin>",
        description => +"path to track route bin file",
-       parse => null)
-       );
+       parse => null));
+
 
    function parse_if_arg (arg_v : in string; arg_i : in positive) return boolean is
    begin
+      --  ! skip if first c isnt "-"?
       for arg of av_a loop
          if arg.switch.all = arg_v then
             return arg.parse (arg_v, arg_i);
          end if;
       end loop;
-      return false;
+      return true;  --  !  doesnt skip option values
    end parse_if_arg;
+
 
    procedure show_help is
       procedure put_line (s : in string) renames ada.text_io.put_line;
@@ -2032,13 +2038,14 @@ procedure bin_test is
    end show_help;
 
 
+
+--    iformat : gm;
+--    oformat : gm;
+-- 
+--    version_num : int32;
+--    second_4_bytes : float;
+
    kind : bin_kind;
-
-   iformat : gm;
-   oformat : gm;
-
-   version_num : int32;
-   second_4_bytes : float;
 
    ob : o_b_type;
 
@@ -2096,6 +2103,9 @@ begin
       return;
    end if;
 
+
+
+   --  !!  notice, warn, error?
 
    --  options
 
