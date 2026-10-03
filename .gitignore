@@ -4,6 +4,7 @@
 *.stream
 *.xml
 *.bin
+*.pssg
 
 # Ada
 # Object file
