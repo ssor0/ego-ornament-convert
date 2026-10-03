@@ -33,3 +33,34 @@ usage: `bin_test <path to ornaments.bin file> -ik <format> -ok <format>`
 
 the file `output_test` will be created in the directory the program was run,
 it can be renamed to `ornaments.bin` and placed in the route folder of a track.
+
+
+
+
+
+
+last 000000010170ed10
+
+
+## notes
+
+- objects.ens `TEMPLATEENTITYINSTANCE`
+for objects/ornaments that have rigid body physics?
+have own `instanceId` and `instanceTag` that share range with `ornaments.bin`
+even though instance itself does not appear in file. `id` and `uri` attributes are same as basic entity (static ornament)
+so next `instance` in `ornaments.bin` will use an `instanceId` value from where the
+previous entity left off
+
+- objects.ens `TEMPLATEBASICENTITYINSTANCE`
+for static objects/ornaments that cant be moved?
+has same `instanceTag` of corresponding instance in `ornaments.bin`, shares range with `ornaments.bin`.
+does not have `instanceId` attribute but still shares range with values in `ornaments.bin`
+so next `TEMPLATEENTITYINSTANCE` in `objects.ens` will use an `instanceId` value from where the
+previous ornament instance left off
+
+### objects.ens
+binary pssg file in older games, xml pssg in newer games (also seems to be ordered, arranged in local hierarchy)?
+
+### ornaments.bin, xml
+
+
