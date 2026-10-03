@@ -1,7 +1,10 @@
+pragma allow_integer_address;
+
 with system;
 with system.memory;
+with system.address_image;
 
-with ada.text_io; use ada.text_io;
+with ada.text_io;
 --with ada.float_text_io; use ada.float_text_io;
 with ada.command_line;
 with ada.directories;
@@ -27,6 +30,25 @@ procedure bin_test is
    use type sio.count;
 
 
+   verbose : boolean := false;
+
+   procedure put_line (s : in string) is
+   begin
+      case verbose is
+         when false => null;
+         when true => ada.text_io.put_line (s);
+      end case;
+   end put_line;
+
+   procedure new_line (number : ada.text_io.positive_count) is
+   begin
+      case verbose is
+         when false => null;
+         when true => ada.text_io.new_line (number);
+      end case;
+   end new_line;
+
+
    procedure dprintf
      (fd     : in integer;
       format : in string;
@@ -36,6 +58,11 @@ procedure bin_test is
       pos_x,  pos_y,  pos_z,  pos_w : in float)
    with import, convention => c_variadic_2;
 
+   gnat_argv : System.Address;
+   pragma Import (C, gnat_argv, "gnat_argv");
+
+   function Len_Arg (Arg_Num : Integer) return Integer;
+   pragma Import (C, Len_Arg, "__gnat_len_arg");
 
    subtype int32 is integer;
    type int32_array is array (int32 range <>) of int32;
@@ -69,10 +96,16 @@ procedure bin_test is
    --  !   untyped free
    procedure free (pool_ptr : in system.address) is
       use type system.address;
+
+      no_alloc : constant system.address := 16#FFFFFFFFFFFFFFF8#;
+
       void_view : system.address with address => pool_ptr;
    begin
-      if pool_ptr = system.null_address then
-         put_line ("WARN   tried to free null address");
+      --put_line ("addr " & system.address_image (pool_ptr));
+      --  !  doesnt work
+--       if pool_ptr = system.null_address then
+      if pool_ptr = no_alloc then
+         put_line ("WARN   tried to free unallocated address");
       else
          system.memory.free (pool_ptr);
          void_view := system.null_address;
@@ -486,22 +519,28 @@ procedure bin_test is
 
    type itag_option is (same, inc, dec, inst_id);
 
+   --  ! args
+   arg_count : constant natural := cli.argument_count;
+
+   ik : gm;
+   oK : gm;
+
+   sort_by_iref : boolean := false;  -- ! older games already sorted
+   itag_behav : itag_option := inst_id;
+   force_ornament : boolean := false;
+   fo_str : string (1 .. 255);
+   fo_str_l : positive;
+   ----
+
    type o_b_type is record
-      ik : gm;
       ifd : sio.file_type;  --  !  may be param
       istream : sio.stream_access;
 
-      oK : gm;
       ofd : sio.file_type;
       ostream : sio.stream_access;
 
       ens_ifd : ada.text_io.file_type;
       ens_ofd : ada.text_io.file_type;
-
-      --  ! args
-      sort_by_iref : boolean := false;  -- ! older games already sorted
-      itag_behav : itag_option := inst_id;
-      ----
 
       version : int32;  --  always 0
 
@@ -578,7 +617,7 @@ procedure bin_test is
 
       subtype count_type is ada.containers.count_type;
 
-      iK : gm renames ob.iK;
+      --iK : gm renames ob.iK;
       ifd : sio.file_type renames ob.ifd;
       istream: sio.stream_access renames ob.istream;
 
@@ -780,7 +819,7 @@ procedure bin_test is
       --  !! will fail if empty instance list?
       pragma assert (ob.act_total_instances > 0);
 
-      itag_val := (case ob.itag_behav is
+      itag_val := (case itag_behav is
         when inc => 0,
         when dec => ob.act_total_instances,
         when others => 0);
@@ -927,7 +966,7 @@ procedure bin_test is
                instance.referenceId := instance_ref.referenceId;
                instance.instanceId := inst_index;
 
-               case ob.itag_behav is
+               case itag_behav is
                   when inst_id => instance.instanceTag := inst_index;
                      --  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                      --  !! this is not in order, issue? do instance tags also skip
@@ -985,7 +1024,7 @@ procedure bin_test is
 
       --  !  sort referenceId <
       --  !   > too?
-      if ob.sort_by_iref then
+      if sort_by_iref then
          iv_sorting.sort (ob.instances);
          put_line ("SORT");
       end if;
@@ -1097,7 +1136,7 @@ procedure bin_test is
 
       use type ada.containers.count_type;
 
-      oK : gm renames ob.oK;
+      --oK : gm renames ob.oK;
       ofd : sio.file_type renames ob.ofd;
       ostream: sio.stream_access renames ob.ostream;
 
@@ -1317,7 +1356,7 @@ procedure bin_test is
                int32'write (ostream, instance_ref.maxInstances);  --  all
 
                --  offset
-               if ob.ik in d3 .. dr then
+               if ik in d3 .. dr then
                   int32'write (ostream, offset_accum);
                else
                   --  ! doesnt have to be recalculated?
@@ -1356,7 +1395,7 @@ procedure bin_test is
                int32'write (ostream, instance_ref.maxInstances);  --  all
 
                --  offset
-               if ob.ik in d3 .. dr then
+               if ik in d3 .. dr then
                   int32'write (ostream, offset_accum);
                else
                   --  ! doesnt have to be recalculated?
@@ -1513,7 +1552,7 @@ procedure bin_test is
       put_line ("dependent ref");
       put_line ("dependent ref count (li) " & ob.dependent_refs.last_index'image);
       put_line ("dependent ref count (length)" & ob.dependent_refs.length'image);
-      put_line ("iK " & ob.iK'image & "  oK " & oK'image);
+      put_line ("iK " & iK'image & "  oK " & oK'image);
       if oK in d3 .. dr and ob.dependent_refs.length > 0 then
          put_line ("writing dependent ref");
 
@@ -1532,7 +1571,7 @@ procedure bin_test is
 
       put_line ("dependent inst");
       put_line ("dependent inst count " & ob.dependent_instances.last_index'image);
-      put_line ("iK " & ob.iK'image & "  oK " & oK'image);
+      put_line ("iK " & iK'image & "  oK " & oK'image);
 
       if oK in d3 .. dr and ob.dependent_instances.length > 0 then
          put_line ("writing dependent inst");
@@ -1546,7 +1585,7 @@ procedure bin_test is
 
       put_line ("path anim");
       put_line ("path anim count " & ob.dependent_refs.last_index'image);
-      put_line ("iK " & ob.iK'image & "  oK " & oK'image);
+      put_line ("iK " & iK'image & "  oK " & oK'image);
       if oK in d3 .. dr and ob.path_anims.length > 0 then
          put_line ("writing path anim");
          for path_anim of ob.path_anims loop
@@ -1559,7 +1598,7 @@ procedure bin_test is
 
       put_line ("emitter");
       put_line ("emitter count " & ob.emitters.last_index'image);
-      put_line ("iK " & ob.iK'image & "  oK " & oK'image);
+      put_line ("iK " & iK'image & "  oK " & oK'image);
       if oK in d3 .. dr and ob.emitters.length > 0 then
          put_line ("writing emitter");
          for emitter of ob.emitters loop
@@ -1578,6 +1617,8 @@ procedure bin_test is
 
    procedure update_string_offsets (ob : in out o_b_type) is
 
+      --  !  all os below  0 based (- 1)
+
       ifd_first_string_offset : ui32 renames
         ob.instance_refs.first_element.fileNameOffset;
 
@@ -1594,18 +1635,22 @@ procedure bin_test is
       sa_size : constant positive := positive (sio.size (ob.ifd) -
         sio.count (sio.index (ob.ifd) - 1));
 
+      --  forced_ornament_string
+      fos_offset : constant int32 := ofd_sa_start + int32 (sa_size);
+
       --  !  all_strings?
       i_string_area : string (1 .. sa_size);
 
+
    begin
 
-      if ob.ik = ob.oK
+      if iK = oK
       or
-        (ob.ik in d2 | f1_others and
-         ob.oK in d2 | f1_others)
+        (iK in d2 | f1_others and
+         oK in d2 | f1_others)
       or
-        (ob.ik in ga | dr and
-         ob.oK in ga | dr)
+        (iK in ga | dr and
+         oK in ga | dr)
       then
          pragma assert (sa_diff = 0);
       end if;
@@ -1614,20 +1659,34 @@ procedure bin_test is
       string'read (ob.istream, i_string_area);
       string'write (ob.ostream, i_string_area);
 
+      pragma assert (fos_offset = int32 (sio.index (ob.ofd)) - 1);
+      if force_ornament then
+         put_line ("fos """ & fo_str (1 .. fo_str_l) & """");
+         string'write (ob.ostream, fo_str (1 .. fo_str_l));
+         --free (ob.fo_str'pool_address);
+      end if;
+
       put_line ("sa difference " & sa_diff'image);
 
       for info of ob.so_info loop
 
-        if so_profiles (ob.oK) (info.kind) = true then
+        if so_profiles (oK) (info.kind) = true then
 
            put_line ("oK has " & info.kind'image);
 
-            if info.value /= ui32'last and info.value /= 0 then
-               sio.set_index (ob.ofd, info.offset_ol);
-               int32'write (ob.ostream, int32 (info.value) + sa_diff);
-            else
-               put_line ("offset not used by ik");
-            end if;
+           if info.value /= ui32'last and info.value /= 0 then
+
+              sio.set_index (ob.ofd, info.offset_ol);
+
+              if force_ornament and then info.kind = sok_iref_fileName then
+                 int32'write (ob.ostream, fos_offset);
+              else
+                 int32'write (ob.ostream, int32 (info.value) + sa_diff);
+              end if;
+
+           else
+              put_line ("offset not used by ik");
+           end if;
 
            --   ! offsets of later str not correct if one ib are removed?
 
@@ -1635,7 +1694,7 @@ procedure bin_test is
 
            --  !  can leave out if from game without?
 
-          --  ! elsif so_profiles (ob.iK) (info.kind) = true then
+          --  ! elsif so_profiles (iK) (info.kind) = true then
           --    !  offset is used, but not by oK. str written to keep later
           --       offsets aligned 
 
@@ -1667,30 +1726,30 @@ procedure bin_test is
 
 
 
-   procedure update_ens (ob : in out o_b_type) is
-
-      tbei_tag : constant string := "<TEMPLATEBASICENTITYINSTANCE";
-      tei_tag : constant string := "<TEMPLATEENTITYINSTANCE";
-      tt_tag : constant string := "<TEMPLATETRANSFORM>";
-
-      line : string (1 .. 500);
-      last : natural;
-
-   begin
-      loop
-         get_line (ob.ens_ifd, line, last);
-         --  !!  last 0
-         if line (tbei_tag'range) = tbei_tag then
-            put_line (tbei_tag);
-            --  ! next inst
-         elsif line (tei_tag'range) = tei_tag then
-            put_line (tei_tag);
-         end if;
-
-         --  ! eof
-         --  !  end of instances?
-      end loop;
-   end update_ens;
+--    procedure update_ens (ob : in out o_b_type) is
+-- 
+--       tbei_tag : constant string := "<TEMPLATEBASICENTITYINSTANCE";
+--       tei_tag : constant string := "<TEMPLATEENTITYINSTANCE";
+--       tt_tag : constant string := "<TEMPLATETRANSFORM>";
+-- 
+--       line : string (1 .. 500);
+--       last : natural;
+-- 
+--    begin
+--       loop
+--          get_line (ob.ens_ifd, line, last);
+--          --  !!  last 0
+--          if line (tbei_tag'range) = tbei_tag then
+--             put_line (tbei_tag);
+--             --  ! next inst
+--          elsif line (tei_tag'range) = tei_tag then
+--             put_line (tei_tag);
+--          end if;
+-- 
+--          --  ! eof
+--          --  !  end of instances?
+--       end loop;
+--    end update_ens;
 
 
    function find (sub : in string; str : in string) return boolean is
@@ -1764,6 +1823,8 @@ procedure bin_test is
 
 
 
+   type parse_arg_access is
+     access function (av : in string; i : in positive) return boolean;
 
    type cli_argument_type is record
       required : boolean;
@@ -1771,92 +1832,52 @@ procedure bin_test is
       has_value : boolean;
       placeholder_val : string_access;
       description : string_access;
+      parse : parse_arg_access;
    end record;
 
    type argument_array is array (positive range <>) of cli_argument_type;
 
-   --  arguments
-   --
-   --    name tree
 
-   av_a : argument_array :=
-     ((required => true,
-       switch   => +"",
-       has_value => true,
-       placeholder_val => +"<file.bin>",
-       description => +"path to track route bin file"),
-
-      (required => true,
-       switch   => +"-ik",  --  ! from?
-       has_value => true,
-       placeholder_val => +"<input kind>", --+"<input type>",
-       description => +"format of input file"),
-
-      (required => true,
-       switch   => +"-ok",  --  ! to?
-       has_value => true,
-       placeholder_val => +"<output kind>",
-       description => +"format of output file"),
-
-      (required => false,
-       switch   => +"-k",
-       has_value => true,
-       placeholder_val => +"",
-       description => +"list format kinds"),
-
-      (required => false,
-       switch   => +"-h",
-       has_value => false,
-       placeholder_val => +"",
-       description => +"show help message")
-       );
-
-
-
-   procedure s_h is
-   begin
-      put_line ("usage: " & cli.command_name
-        & " [-help] | <file> -ik <input format kind> -oK <output format kind>");
-      put_line ("[ ] = optional, < > = required, | = or");
-      put_line ("formats kinds");
-      put_line ("  (d2 and f1_others are same)");
-      put_line ("  (ga and dr are same)");
-      for g in gm'range loop
-         put_line ("    " & g'image);
-      end loop;
-   end s_h;
-
-
-
-   kind : bin_kind;
-
-   iformat : gm;
-   oformat : gm;
-
-   version_num : int32;
-   second_4_bytes : float;
-
-   ob : o_b_type;
    k_count : natural := 0;
-
-
-   function is_valid_num (s : string) return boolean is
+   function parse_k_arg (s : in string; i : in positive) return boolean is
+      procedure put_line (s : in string) renames ada.text_io.put_line;
    begin
-      for c of s loop
-         if c not in '0' .. '9' then
-            return false;
-         end if;
-      end loop;
-      return true;
-   end is_valid_num;
+      if s = "-ik" then
+         iK := gm'value (cli.argument (i + 1));
+         k_count := k_count + 1;
 
-   function parse_itag_arg (index : positive) return boolean is
+      elsif s = "-ok" then
+         oK := gm'value (cli.argument (i + 1));
+         k_count := k_count + 1;
+      end if;
+      return true;
+   exception
+      when constraint_error =>
+         put_line ("""" & cli.argument (i + 1) & """ invalid format");
+         return false;
+   end parse_k_arg;
+
+
+   function parse_itag_arg (av : in string; index : positive) return boolean is
+
+      procedure put_line (s : in string) renames ada.text_io.put_line;
+
+      function is_valid_num (s : string) return boolean is
+      begin
+         for c of s loop
+            if c not in '0' .. '9' then
+               return false;
+            end if;
+         end loop;
+         return true;
+      end is_valid_num;
+
    begin
       if index + 1 > cli.argument_count then
          put_line ("missing value for -itag");
       else
          if itag_option'valid_value (cli.argument (index + 1)) then
-            ob.itag_behav := itag_option'value (cli.argument (index + 1));
+            itag_behav := itag_option'value (cli.argument (index + 1));
             return true;
          else
             put_line ("invalid value for -itag");
@@ -1868,7 +1889,163 @@ procedure bin_test is
       return false;
    end parse_itag_arg;
 
+   function parse_iref_sort_arg (av : in string; index : positive) return boolean is
+   begin
+      sort_by_iref := true;
+      return true;
+   end parse_iref_sort_arg;
+
+   function parse_v_arg (av : in string; index : positive) return boolean is
+   begin
+      verbose := true;
+      return true;
+   end parse_v_arg;
+
+   function parse_fo_arg (av : in string; index : positive) return boolean is
+      procedure put_line (s : in string) renames ada.text_io.put_line;
+   begin
+      if index + 1 > cli.argument_count then
+         put_line ("missing name string for -fo");
+         return false;
+      end if;
+
+      force_ornament := true;
+
+      declare
+         s : constant string := cli.argument (index + 1);
+      begin
+         if s'length > fo_str'length then
+            put_line ("fo string too long");
+            return false;
+         end if;
+         fo_str_l := s'length + 1;
+         fo_str (1 .. s'last + 1) := s & ascii.nul;
+      end;
+      return true;
+   end parse_fo_arg;
+
+
+   --  !  forward declaration because av_a has to be in scope of show_help
+   procedure show_help;
+
+
+   function parse_h_arg (av : in string; index : positive) return boolean is
+   begin
+      show_help;
+      return false;
+   end parse_h_arg;
+
+
+
+   --  arguments
+   --
+   --    name tree
+
+
+   av_a : argument_array :=
+     ((required => true,
+       switch   => +"-ik",  --  ! from?
+       has_value => true,
+       placeholder_val => +"<input kind>", --+"<input type>",
+       description => +"format of input file",
+       parse => parse_k_arg'access),
+
+      (required => true,
+       switch   => +"-ok",  --  ! to?
+       has_value => true,
+       placeholder_val => +"<output kind>",
+       description => +"format of output file",
+       parse => parse_k_arg'access),
+
+      (required => false,
+       switch   => +"-itag",
+       has_value => true,
+       placeholder_val => +"<same | inc | dec | inst_id>",
+       description => +"behavior of setting instance tag when missing from ik",
+       parse => parse_itag_arg'access),
+
+      (required => false,
+       switch   => +"-iref_sort",
+       has_value => false,
+       placeholder_val => +"",
+       description => +"sort inst by iref id",
+       parse => parse_iref_sort_arg'access),
+
+      (required => false,
+       switch   => +"-fo",
+       has_value => false,
+       placeholder_val => +"<ornament name>",
+       description => +"force all instances to use ornament <name>",
+       parse => parse_fo_arg'access),
+
+      (required => false,
+       switch   => +"-v",
+       has_value => false,
+       placeholder_val => +"",
+       description => +"print what is happening",
+       parse => parse_k_arg'access),
+
+      (required => false,
+       switch   => +"-h",
+       has_value => false,
+       placeholder_val => +"",
+       description => +"show help message",
+       parse => parse_h_arg'access),
+
+      (required => true,
+       switch   => +"",
+       has_value => true,
+       placeholder_val => +"<file.bin>",
+       description => +"path to track route bin file",
+       parse => null)
+       );
+
+   function parse_if_arg (arg_v : in string; arg_i : in positive) return boolean is
+   begin
+      for arg of av_a loop
+         if arg.switch.all = arg_v then
+            return arg.parse (arg_v, arg_i);
+         end if;
+      end loop;
+      return false;
+   end parse_if_arg;
+
+   procedure show_help is
+      procedure put_line (s : in string) renames ada.text_io.put_line;
+   begin
+      put_line ("usage: " & cli.command_name
+        & " [options] -ik <input format kind> -ok <output format kind> <file>");
+      put_line ("[ ] = optional, < > = required, | = or");
+
+      put_line ("formats kinds (d2 = f1_others, ga = dr):");
+      for g in gm'range loop
+         put_line ("  " & g'image);
+      end loop;
+
+      put_line ("options:");
+      for a of av_a loop
+         if not a.required or else a.switch.all'length /= 0 then
+            put_line ("  " & a.switch.all & " " & a.placeholder_val.all
+              & ": " & a.description.all);
+         end if;
+      end loop;
+   end show_help;
+
+
+   kind : bin_kind;
+
+   iformat : gm;
+   oformat : gm;
+
+   version_num : int32;
+   second_4_bytes : float;
+
+   ob : o_b_type;
+
+
 begin
+--    put_line (system.address_image (gnat_argv));
+--    return;
 
    --put (312.199999999, aft => 9, exp => 0); new_line;
    --   312.314453125
@@ -1899,46 +2076,34 @@ begin
 --       exit when a_index > av_a'last;
 --    end loop;
 
-   if cli.argument_count = 0 or else cli.argument (1) = "-help" then
-      s_h;
+   if arg_count = 0 or else cli.argument (1) = "-h" then
+      show_help;
       return;
 
-   elsif cli.argument_count < 5 then
+   elsif arg_count < 5 then
       put_line ("not enough arguments");
-      s_h;
+      show_help;
       return;
 
    end if;
 
 
+   --  file arg check
+   if not  dir.exists (cli.argument (arg_count)) or else
+      not (dir.kind   (cli.argument (arg_count)) = dir.ordinary_file)
+   then
+      put_line ("""" & cli.argument (arg_count) & """ not a file");
+      return;
+   end if;
+
+
    --  options
 
-   for a_index in 2 .. cli.argument_count loop
-   begin
-
-      if cli.argument (a_index) = "-ik" then
-         ob.iK := gm'value (cli.argument (a_index + 1));
-         k_count := k_count + 1;
-
-      elsif cli.argument (a_index) = "-ok" then
-         ob.oK := gm'value (cli.argument (a_index + 1));
-         k_count := k_count + 1;
-
-      elsif cli.argument (a_index) = "-itag" then
-         if parse_itag_arg (a_index) = false then
-            return;
-         end if;
-
-      elsif cli.argument (a_index) = "-iref_sort" then
-         ob.sort_by_iref := true;
-      end if;
-
-   exception
-      when constraint_error =>
-         put_line ("""" & cli.argument (a_index + 1) & """ invalid format");
-         s_h;
+   for arg_i in 1 .. arg_count - 1 loop
+      if parse_if_arg (cli.argument (arg_i), arg_i) = false then
+         --  ! parse fail or arg causes to exit early
          return;
-   end;
+      end if;
    end loop;
 
    if k_count /= 2 then
@@ -1947,56 +2112,54 @@ begin
    end if;
 
 
-   --  file arg check
-
-   for file_arg in 5 .. cli.argument_count loop
-      if not  dir.exists (cli.argument (file_arg)) or else
-         not (dir.kind   (cli.argument (file_arg)) = dir.ordinary_file)
-      then
-         put_line ("""" & cli.argument (file_arg) & """ not a file");
-         return;
-      end if;
-   end loop;
+--    for file_arg in 5 .. cli.argument_count loop
+--       if not  dir.exists (cli.argument (file_arg)) or else
+--          not (dir.kind   (cli.argument (file_arg)) = dir.ordinary_file)
+--       then
+--          put_line ("""" & cli.argument (file_arg) & """ not a file");
+--          return;
+--       end if;
+--    end loop;
 
 
    --  format kind
-   if (ob.ik < d3 and ob.oK >= d3) and then
-      cli.argument_count < 6
-   then
-      put_line ("path to input objects.ens needed for older to newer");
-      return;
-
-   elsif ob.ik = ob.oK or
-     (ob.ik in d2 | f1_others and
-      ob.oK in d2 | f1_others)
+--    if (iK < d3 and oK >= d3) and then
+--       cli.argument_count < 6
+--    then
+--       put_line ("path to input objects.ens needed for older to newer");
+--       return;
+-- 
+   if iK = oK or
+     (iK in d2 | f1_others and
+      oK in d2 | f1_others)
    then
       put_line ("formats are same");
    end if;
 
 
    --  o
-   sio.open (ob.ifd, sio.in_file, cli.argument (5));
+   sio.open (ob.ifd, sio.in_file, cli.argument (arg_count));
    sio.create (ob.ofd, sio.out_file, "output_test.bin");
 
    --  ens
-   if cli.argument_count >= 6 then
-      open (ob.ens_ifd, in_file, cli.argument (6));
-      create (ob.ens_ofd, out_file, "output_test.ens");
-
-      declare
-         xml_id : constant string := "<?xml";
-         b : string (1 .. 5);
-      begin
-         get (ob.ens_ifd, b);
-         if b /= xml_id then
-            put_line ("""" & cli.argument (6) & """ not xml file");
-            put_line ("first 5 char were """ & b & """");
-            return;
-         end if;
-         set_col (ob.ens_ifd, 1);
-      end;
-
-   end if;
+--    if cli.argument_count >= 6 then
+--       open (ob.ens_ifd, in_file, cli.argument (6));
+--       create (ob.ens_ofd, out_file, "output_test.ens");
+-- 
+--       declare
+--          xml_id : constant string := "<?xml";
+--          b : string (1 .. 5);
+--       begin
+--          get (ob.ens_ifd, b);
+--          if b /= xml_id then
+--             put_line ("""" & cli.argument (6) & """ not xml file");
+--             put_line ("first 5 char were """ & b & """");
+--             return;
+--          end if;
+--          set_col (ob.ens_ifd, 1);
+--       end;
+-- 
+--    end if;
 
    --  
 --    sio.open (ifile, sio.in_file, cli.argument (1));
@@ -2047,6 +2210,10 @@ begin
 --    put_line (u.field_1'image);
 -- 
 --    put_line (u.field_3'image);
+
+   --put_line ("na " & system.address_image (system.null_address));
+   --  !!  causes internal compiler rerror
+   --free (ob.fo_str.all'pool_address);
 
    sio.close (ob.ifd);
    sio.close (ob.ofd);
