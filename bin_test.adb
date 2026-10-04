@@ -30,23 +30,9 @@ procedure bin_test is
    use type sio.count;
 
 
-   verbose : boolean := false;
-
---    procedure put_line (s : in string) is
---    begin
---       case verbose is
---          when false => null;
---          when true => ada.text_io.put_line (s);
---       end case;
---    end put_line;
--- 
---    procedure new_line (number : ada.text_io.positive_count) is
---    begin
---       case verbose is
---          when false => null;
---          when true => ada.text_io.new_line (number);
---       end case;
---    end new_line;
+   --  !  info, notice?
+   type message_kind is (info, log, warn, error);
+   procedure put_line (mk : in message_kind; s : in string);
 
 
 --    procedure dprintf
@@ -105,7 +91,7 @@ procedure bin_test is
       --  !  doesnt work
 --       if pool_ptr = system.null_address then
       if pool_ptr = no_alloc then
-         put_line ("WARN   tried to free unallocated address");
+         put_line (warn, "tried to free unallocated address");
       else
          system.memory.free (pool_ptr);
          void_view := system.null_address;
@@ -530,6 +516,7 @@ procedure bin_test is
    force_ornament : boolean := false;
    fo_str : string (1 .. 255);
    fo_str_l : positive;
+   verbose : boolean := false;
    ----
 
    type o_b_type is record
@@ -639,8 +626,8 @@ procedure bin_test is
       instance_index : int32 := 0;
 
    begin
-      put_line ("read");
-      put_line ("version");
+      put_line (info, "reading...");
+      put_line (log, "version");
 
       int32'read (istream, ob.version);
       pragma assert (ob.version = 0);
@@ -649,13 +636,15 @@ procedure bin_test is
       --  instanceData
       if ik in d3 .. dr then
          instanceData'read (istream, ob.instance_data);
-         put_line ("instance data");
+         put_line (log, "instance data");
+      else
+         put_line (info, "no instance data");
       end if;
 
 
       --  instanceList
 
-      put_line ("instance list");
+      put_line (log, "instance list");
 
       aabb_t'read (istream, ob.instance_list.bounds);
 
@@ -674,7 +663,7 @@ procedure bin_test is
       int32'read (istream, ob.instance_list.numInstanceRef);
 
       --  !  checks if numInstanceRef = referenceNum
-      put_line ("num iref, rn" & num_iref'image);
+      put_line (log, "num iref, rn" & num_iref'image);
       if num_iref /= -1 then
          pragma assert (ob.instance_list.numInstanceRef = num_iref);
       end if;
@@ -701,7 +690,7 @@ procedure bin_test is
       --if instance_data.numDependentList >= 1 then
       if ik in d3 .. dr then
          dependentList'read (istream, ob.dependent_list);
-         put_line ("dependent list");
+         put_line (log, "dependent list");
       end if;
 
       --  !  both default 0
@@ -715,7 +704,7 @@ procedure bin_test is
 
       if ik in d3 .. dr then
          pathAnimRoot'read (istream, ob.path_anim_root);
-         put_line ("path anim root");
+         put_line (log, "path anim root");
       end if;
 
       pragma assert (ob.path_anim_root.count = ob.path_anim_root.numPathAnim);
@@ -723,7 +712,7 @@ procedure bin_test is
 
       --   instanceref
 
-      put_line ("instance ref");
+      put_line (log, "instance ref");
 
       ob.instance_refs.reserve_capacity (count_type (num_iref));
 
@@ -732,7 +721,7 @@ procedure bin_test is
 
 
       if num_iref = 0 then
-         put_line ("no instance ref");
+         put_line (warn, "no instance ref");
       end if;
 
       --  !  loop isnt run if num_iref = 0
@@ -784,8 +773,8 @@ procedure bin_test is
                ob.act_total_instances :=
                  ob.act_total_instances + instance_ref.numInstances;
 
-               put_line ("maxInstances " & instance_ref.maxInstances'image);
-               put_line ("numInstances " & instance_ref.numInstances'image);
+               put_line (log, "maxInstances " & instance_ref.maxInstances'image);
+               put_line (log, "numInstances " & instance_ref.numInstances'image);
 
             when rdg =>
                int32'read (istream, instance_ref.maxInstances);
@@ -815,7 +804,7 @@ procedure bin_test is
 
       --  instance
 
-      put_line ("act total instances" & ob.act_total_instances'image);
+      put_line (log, "act total instances" & ob.act_total_instances'image);
 
       --  !! will fail if empty instance list?
       pragma assert (ob.act_total_instances > 0);
@@ -828,8 +817,8 @@ procedure bin_test is
       pragma assert (num_iref = int32 (ob.instance_refs.length));
 
 
-      put_line ("instance_refs.length" & ob.instance_refs.length'image);
-      put_line ("instance_refs.last_index" & ob.instance_refs.last_index'image);
+      put_line (log, "instance_refs.length" & ob.instance_refs.length'image);
+      put_line (log, "instance_refs.last_index" & ob.instance_refs.last_index'image);
 
 
       if iK in d3 .. dr then
@@ -842,8 +831,8 @@ procedure bin_test is
             int32'read (istream, instance.referenceId);
             int32'read (istream, instance.instanceId);
 
-            put_line ("instance reference id" & instance.referenceId'image);
-            put_line ("instance instance id" & instance.instanceId'image);
+            put_line (log, "instance reference id" & instance.referenceId'image);
+            put_line (log, "instance instance id" & instance.instanceId'image);
 
 
             --  !  rewrite instances in order of instance refs to see if will still work?
@@ -936,8 +925,8 @@ procedure bin_test is
 
             --   !  offset_accum + numInstances li?
 
-            put_line ("ir offset " & instance_ref.offset'image);
-            put_line ("act num instance of ir"
+            put_line (log, "ir offset " & instance_ref.offset'image);
+            put_line (log, "act num instance of ir"
               & instance_ref.numInstances'image);
 
 
@@ -960,8 +949,8 @@ procedure bin_test is
                instance_index := instance_index + 1;
 
                --  !  instanceRef referenceId manually added to iK without it
-               put_line ("reference id" & instance_ref.referenceId'image);
-               put_line ("instance id" & inst_index'image);
+               put_line (log, "reference id" & instance_ref.referenceId'image);
+               put_line (log, "instance id" & inst_index'image);
                --put_line ("instances l " & ob.instances.length'image);
 
                instance.referenceId := instance_ref.referenceId;
@@ -1020,25 +1009,27 @@ procedure bin_test is
       end if;
 
 
-      put_line ("act total instance" & ob.act_total_instances'image & "   instance.length" & ob.instances.length'image);
+      put_line (log, "act total instance" & ob.act_total_instances'image
+        & "   instance.length" & ob.instances.length'image);
+
       pragma assert (ob.act_total_instances = int32 (ob.instances.length));
 
       --  !  sort referenceId <
       --  !   > too?
       if sort_by_iref then
+         put_line (info, "sorting by iref...");
          iv_sorting.sort (ob.instances);
-         put_line ("SORT");
       end if;
 
 
       --   dependentRef
 
       if ob.dependent_list.referenceNum > 0 then
-         put_line ("dependent ref");
+         put_line (log, "dependent ref");
          ob.dependent_refs.reserve_capacity
            (count_type (ob.dependent_list.referenceNum));
       else
-         put_line ("no dependent list");
+         put_line (info, "no dependent list");
       end if;
 
       for dref_index in 0 .. ob.dependent_list.referenceNum - 1 loop
@@ -1058,11 +1049,11 @@ procedure bin_test is
       --  dependentInstance
 
       if ob.dependent_list.instanceNum > 0 then
-         put_line ("dependent instance");
+         put_line (log, "dependent instance");
          ob.dependent_refs.reserve_capacity
            (count_type (ob.dependent_list.instanceNum));
       else
-         put_line ("no dependent instances");
+         put_line (info, "no dependent instances");
       end if;
 
       for dinst_index in 0 .. ob.dependent_list.instanceNum - 1 loop
@@ -1074,11 +1065,11 @@ procedure bin_test is
       --  pathAnim
 
       if ob.path_anim_root.numPathAnim > 0 then
-         put_line ("path anim");
+         put_line (log, "path anim");
          ob.path_anims.reserve_capacity
            (count_type (ob.path_anim_root.numPathAnim));
       else
-         put_line ("no path anim root");
+         put_line (info, "no path anim root");
       end if;
 
       for pa_index in 0 .. ob.path_anim_root.numPathAnim - 1 loop
@@ -1105,10 +1096,10 @@ procedure bin_test is
 
 
       if ob.total_emitters > 0 then
-         put_line ("emitter");
+         put_line (log, "emitter");
          ob.emitters.reserve_capacity (count_type (ob.total_emitters));
       else
-         put_line ("no emitter");
+         put_line (info, "no emitter");
       end if;
 
       for e_index in 0 .. ob.total_emitters - 1 loop
@@ -1122,7 +1113,7 @@ procedure bin_test is
       end loop;
 
 
-      put_line ("ifd index" & sio.positive_count'image (sio.index (ifd) - 1));
+      put_line (log, "ifd index" & sio.positive_count'image (sio.index (ifd) - 1));
 
       pragma assert (ui32 (sio.index (ifd)) - 1 =
         ob.instance_refs.first_element.fileNameOffset,
@@ -1155,9 +1146,9 @@ procedure bin_test is
 
    begin
 
-      put_line ("write");
+      put_line (info, "writing...");
 
-      put_line ("version");
+      put_line (log, "version");
       pragma assert (ob.version = 0);
       int32'write (ostream, ob.version);
 
@@ -1168,13 +1159,12 @@ procedure bin_test is
          --  ! numDependentList and numPathAnimRoot default 1 if
          --    ik doesnt have them
          instanceData'write (ostream, ob.instance_data);
-         put_line ("instance data");
-
+         put_line (log, "instance data");
       end if;
 
       --  instanceList
 
-      put_line ("instance list");
+      put_line (log, "instance list");
 
 
       aabb_t'write (ostream, ob.instance_list.bounds);
@@ -1184,9 +1174,9 @@ procedure bin_test is
          --put_line ("write referenceNum");
          --put_line ("ofd index" & sio.index (ofd)'image);
 
-         put_line ("il rn" & ob.instance_list.referenceNum'image);
-         put_line ("instance_refs.length" & ob.instance_refs.length'image);
-         put_line ("instance_refs.last_index" & ob.instance_refs.last_index'image);
+         put_line (log, "il rn" & ob.instance_list.referenceNum'image);
+         put_line (log, "instance_refs.length" & ob.instance_refs.length'image);
+         put_line (log, "instance_refs.last_index" & ob.instance_refs.last_index'image);
 
          --  !  referenceNum manually added to ik without it
          pragma assert (ob.instance_list.referenceNum =
@@ -1235,7 +1225,7 @@ procedure bin_test is
       --  ! offset also need to be updated for ik that have dependentList?
 
       if oK in d3 .. dr then
-         put_line ("dependent list");
+         put_line (log, "dependent list");
 
          --  !  dependentList only present with weather (rain, snow)?
          --  ! g2, ga never use dependentList?
@@ -1272,7 +1262,7 @@ procedure bin_test is
 
       if oK in d3 .. dr then
 
-         put_line ("path anim root");
+         put_line (log, "path anim root");
 
          --  ! no change from dependentInstanceOffset if instanceNum 0
          ob.path_anim_root.pathAnimOffset := ob.dependent_list.dependentInstanceOffset
@@ -1288,11 +1278,11 @@ procedure bin_test is
 
 
       if ob.instance_refs.length = 0 then
-         put_line ("no instance ref");
+         put_line (warn, "no instance ref");
          goto skip_instance_ref;
       end if;
 
-      put_line ("instance ref");
+      put_line (log, "instance ref");
 
       pragma assert (int32 (sio.index (ofd)) - 1 = iref_offsets (oK));
 
@@ -1300,7 +1290,7 @@ procedure bin_test is
 
       for instance_ref of ob.instance_refs loop
 
-         put_line ("writing instanceRef" & instance_ref.referenceId'image);
+         put_line (log, "writing instanceRef" & instance_ref.referenceId'image);
 
          --  fileNameOffset
 
@@ -1327,7 +1317,7 @@ procedure bin_test is
          case ok is
 
             when d3 .. dr =>
-               put_line ("ir sponsor " & instance_ref.sponsor'image);
+               put_line (log, "ir sponsor " & instance_ref.sponsor'image);
                int32'write (ostream, instance_ref.sponsor);  --  default 0
                int32'write (ostream, instance_ref.prebakedShadows); --  default 0
 
@@ -1440,17 +1430,17 @@ procedure bin_test is
 
       --  instance
 
-      put_line ("instance");
+      put_line (log, "instance");
 
-      put_line ("INSTANCES length" & ob.instances.length'image);
+      put_line (log, "INSTANCES length" & ob.instances.length'image);
 
 
       --  ! how to check if instances in d3 .. dr in order?
 
       for instance of ob.instances loop
 
-         put_line ("inst id" & instance.instanceId'image);
-         put_line ("r id" & instance.referenceId'image);
+         put_line (log, "inst id" & instance.instanceId'image);
+         put_line (log, "r id" & instance.referenceId'image);
          instance_nums (instance.referenceId) :=
            instance_nums (instance.referenceId) + 1;
 
@@ -1539,7 +1529,7 @@ procedure bin_test is
             irr : instanceRef_vectors.reference_type :=
               ob.instance_refs.reference (iref_index);
          begin
-            put_line ("act nI" & irr.numInstances'image &
+            put_line (log, "act nI" & irr.numInstances'image &
               "    written nI" & instance_nums (iref_index)'image);
             pragma assert (irr.numInstances = instance_nums (iref_index));
          end;
@@ -1550,12 +1540,14 @@ procedure bin_test is
 
       --   dependentRef
 
-      put_line ("dependent ref");
-      put_line ("dependent ref count (li) " & ob.dependent_refs.last_index'image);
-      put_line ("dependent ref count (length)" & ob.dependent_refs.length'image);
-      put_line ("iK " & iK'image & "  oK " & oK'image);
+      put_line (log, "iK " & iK'image & "  oK " & oK'image);
+
+      put_line (log, "dependent ref");
+      put_line (log, "dependent ref count (li) " & ob.dependent_refs.last_index'image);
+      put_line (log, "dependent ref count (length)" & ob.dependent_refs.length'image);
+
       if oK in d3 .. dr and ob.dependent_refs.length > 0 then
-         put_line ("writing dependent ref");
+         put_line (log, "writing dependent ref");
 
          for dref of ob.dependent_refs loop
 
@@ -1570,12 +1562,11 @@ procedure bin_test is
 
       --  dependentInstance
 
-      put_line ("dependent inst");
-      put_line ("dependent inst count " & ob.dependent_instances.last_index'image);
-      put_line ("iK " & iK'image & "  oK " & oK'image);
+      put_line (log, "dependent inst");
+      put_line (log, "dependent inst count " & ob.dependent_instances.last_index'image);
 
       if oK in d3 .. dr and ob.dependent_instances.length > 0 then
-         put_line ("writing dependent inst");
+         put_line (log, "writing dependent inst");
          for dependent_instance of ob.dependent_instances loop
             dependentInstance'write (ostream, dependent_instance);
          end loop;
@@ -1584,11 +1575,11 @@ procedure bin_test is
 
       --  pathAnim
 
-      put_line ("path anim");
-      put_line ("path anim count " & ob.dependent_refs.last_index'image);
-      put_line ("iK " & iK'image & "  oK " & oK'image);
+      put_line (log, "path anim");
+      put_line (log, "path anim count " & ob.dependent_refs.last_index'image);
+
       if oK in d3 .. dr and ob.path_anims.length > 0 then
-         put_line ("writing path anim");
+         put_line (log, "writing path anim");
          for path_anim of ob.path_anims loop
             ob.so_info.append ((sio.index (ofd) + 4, path_anim.animClipNameOffset, sok_animClipName));
             pathAnim'write (ostream, path_anim);
@@ -1597,18 +1588,18 @@ procedure bin_test is
 
       --  emitter
 
-      put_line ("emitter");
-      put_line ("emitter count " & ob.emitters.last_index'image);
-      put_line ("iK " & iK'image & "  oK " & oK'image);
+      put_line (log, "emitter");
+      put_line (log, "emitter count " & ob.emitters.last_index'image);
+
       if oK in d3 .. dr and ob.emitters.length > 0 then
-         put_line ("writing emitter");
+         put_line (log, "writing emitter");
          for emitter of ob.emitters loop
             ob.so_info.append ((sio.index (ofd), emitter.nameOffset, sok_emitter_Name));
             emitter_type'write (ostream, emitter);
          end loop;
       end if;
 
-      put_line ("ofd index" & sio.index (ofd)'image);
+      put_line (log, "ofd index" & sio.index (ofd)'image);
 
    end write;
 
@@ -1662,18 +1653,18 @@ procedure bin_test is
 
       pragma assert (fos_offset = int32 (sio.index (ob.ofd)) - 1);
       if force_ornament then
-         put_line ("fos """ & fo_str (1 .. fo_str_l) & """");
+         put_line (info, "forcing ornament """ & fo_str (1 .. fo_str_l) & """");
          string'write (ob.ostream, fo_str (1 .. fo_str_l));
          --free (ob.fo_str'pool_address);
       end if;
 
-      put_line ("sa difference " & sa_diff'image);
+      put_line (info, "sa difference " & sa_diff'image);
 
       for info of ob.so_info loop
 
         if so_profiles (oK) (info.kind) = true then
 
-           put_line ("oK has " & info.kind'image);
+           put_line (log, "oK has " & info.kind'image);
 
            if info.value /= ui32'last and info.value /= 0 then
 
@@ -1686,7 +1677,7 @@ procedure bin_test is
               end if;
 
            else
-              put_line ("offset not used by ik");
+              put_line (log, "offset not used by ik");
            end if;
 
            --   ! offsets of later str not correct if one ib are removed?
@@ -1841,7 +1832,6 @@ procedure bin_test is
 
    k_count : natural := 0;
    function parse_k_arg (s : in string; i : in positive) return boolean is
-      procedure put_line (s : in string) renames ada.text_io.put_line;
    begin
       if s = "-ik" then
          iK := gm'value (cli.argument (i + 1));
@@ -1854,14 +1844,12 @@ procedure bin_test is
       return true;
    exception
       when constraint_error =>
-         put_line ("""" & cli.argument (i + 1) & """ invalid format");
+         put_line (warn, """" & cli.argument (i + 1) & """ invalid format");
          return false;
    end parse_k_arg;
 
 
    function parse_itag_arg (av : in string; index : positive) return boolean is
-
-      procedure put_line (s : in string) renames ada.text_io.put_line;
 
       function is_valid_num (s : string) return boolean is
       begin
@@ -1875,13 +1863,13 @@ procedure bin_test is
 
    begin
       if index + 1 > cli.argument_count then
-         put_line ("missing value for -itag");
+         put_line (warn, "missing value for -itag");
       else
          if itag_option'valid_value (cli.argument (index + 1)) then
             itag_behav := itag_option'value (cli.argument (index + 1));
             return true;
          else
-            put_line ("invalid value for -itag");
+            put_line (warn, "invalid value for -itag");
             for val in itag_option'range loop
                put_line (val'image);
             end loop;
@@ -1906,10 +1894,9 @@ procedure bin_test is
 
 
    function parse_fo_arg (av : in string; index : positive) return boolean is
-      procedure put_line (s : in string) renames ada.text_io.put_line;
    begin
       if index + 1 > cli.argument_count then
-         put_line ("missing name string for -fo");
+         put_line (warn, "missing name string for -fo");
          return false;
       end if;
 
@@ -1919,7 +1906,7 @@ procedure bin_test is
          s : constant string := cli.argument (index + 1);
       begin
          if s'length > fo_str'length then
-            put_line ("fo string too long");
+            put_line (error, "fo string too long");
             return false;
          end if;
          fo_str_l := s'length + 1;
@@ -2017,7 +2004,6 @@ procedure bin_test is
 
 
    procedure show_help is
-      procedure put_line (s : in string) renames ada.text_io.put_line;
    begin
       put_line ("usage: " & cli.command_name
         & " [options] -ik <input format kind> -ok <output format kind> <file>");
@@ -2038,12 +2024,27 @@ procedure bin_test is
    end show_help;
 
 
+   procedure put_line (mk : in message_kind; s : in string) is
+
+      mk_strings : constant array (message_kind) of string_access :=
+        (+"[Info]: ", +"[LOG]: ", +"[Warning]: ", +"[ERROR]: ");
+
+      mks : constant string_access := mk_strings (mk);
+   begin
+      if verbose = false and then mk = log then
+         return;
+      end if;
+      ada.text_io.put_line (mks.all & s);
+   end put_line;
+
 
 --    iformat : gm;
 --    oformat : gm;
 -- 
 --    version_num : int32;
 --    second_4_bytes : float;
+
+   ofd_name : constant string := "output.bin";
 
    kind : bin_kind;
 
@@ -2088,7 +2089,7 @@ begin
       return;
 
    elsif arg_count < 5 then
-      put_line ("not enough arguments");
+      put_line (warn, "not enough arguments");
       show_help;
       return;
 
@@ -2099,7 +2100,7 @@ begin
    if not  dir.exists (cli.argument (arg_count)) or else
       not (dir.kind   (cli.argument (arg_count)) = dir.ordinary_file)
    then
-      put_line ("""" & cli.argument (arg_count) & """ not a file");
+      put_line (warn, """" & cli.argument (arg_count) & """ not a file");
       return;
    end if;
 
@@ -2117,7 +2118,7 @@ begin
    end loop;
 
    if k_count /= 2 then
-      put_line ("specify formats with ""-ik"" and ""-oK""");
+      put_line (warn, "specify formats with ""-ik"" and ""-oK""");
       return;
    end if;
 
@@ -2143,13 +2144,14 @@ begin
      (iK in d2 | f1_others and
       oK in d2 | f1_others)
    then
-      put_line ("formats are same");
+      put_line (info, "formats are same (unless an extra option was used "
+        & ofd_name & " should be identical to original file)");
    end if;
 
 
    --  o
    sio.open (ob.ifd, sio.in_file, cli.argument (arg_count));
-   sio.create (ob.ofd, sio.out_file, "output_test.bin");
+   sio.create (ob.ofd, sio.out_file, ofd_name); --"output_test.bin");
 
    --  ens
 --    if cli.argument_count >= 6 then
@@ -2188,19 +2190,21 @@ begin
 
    case kind is
       when ornaments_bin =>
-         put_line ("o");
+         put_line (info, "o");
          read (ob);
          write (ob);
          update_string_offsets (ob);
 
-         
+         put_line (info, "succeeded in converting "
+           & ik'image & " to " & oK'image & ascii.lf
+           & "converted file wrote to " & ofd_name);
 
       when trees_bin =>
-         put_line ("t");
+         put_line (info, "t");
       when crowd_bin =>
-         put_line ("c");
+         put_line (info, "c");
       when unknown =>
-         put_line ("unknown");
+         put_line (error, "unknown file");
    end case;
 
 
