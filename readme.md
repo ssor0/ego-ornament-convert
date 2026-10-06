@@ -72,8 +72,8 @@ options:
 
 ## Compilation
   1. download gnat compiler: [windows](https://github.com/alire-project/GNAT-FSF-builds/releases/download/gnat-15.3.0-1/gnat-x86_64-elf-windows64-x86_64-15.3.0-1.tar.gz), [mac os](https://github.com/alire-project/GNAT-FSF-builds/releases/download/gnat-15.3.0-1/gnat-x86_64-darwin-15.3.0-1.tar.gz), look for packages containing `gnat` if using linux
-  2. run `<path to bin folder of gnat>/gnatmake -gnata bin_test.adb`
-  3. `bin_test(.exe)` should appear in the current directory
+  2. run `<path to bin folder of gnat>/gnatmake -gnata bin_convert.adb`
+  3. `bin_convert(.exe)` should appear in the current directory
 
 
 

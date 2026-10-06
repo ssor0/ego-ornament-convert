@@ -16,3 +16,5 @@
 *.bexch
 *.stdout
 *.stderr
+
+bin_convert
