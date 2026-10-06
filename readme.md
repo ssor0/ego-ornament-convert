@@ -2,7 +2,7 @@
 
 Based on the documentation of the different formats by petar tasev [here](https://github.com/EgoEngineModding/Ego-Engine-Modding/blob/master/src/010%20Templates/ornaments.bt)
 
-Converts `ornaments.bin` file between the different formats used in older (ego 1.0 to 3.0) codemasters ego games, and is a part of
+commond line tool that converts `ornaments.bin` file between the different formats used in older (ego 1.0 to 3.0) codemasters ego games, and is a part of
 the process of using/converting tracks themselves between games.
 
 This file is responsible for setting the transform (position, rotation and scale) and other properties of each ornament instance
@@ -18,11 +18,17 @@ only certain conversions have been tested and there are very likely bugs or comp
 
 precompiled versions for windows can be downloaded from [releases](https://github.com/ssor0/ego-ornament-convert/releases)
 
-Example: ```bin_convert -ik ds -ok d3 "steamapps/common/DiRT Showdown/tracks/locations/cities/miami/route_0/ornaments.bin"```
-would convert `ornaments.bin` for miami route 0 from dirt showdowns format to dirt 3 and create the file `output_d3.bin`
+Example:
+```
+bin_convert -ik ds -ok d3 "steamapps/common/DiRT Showdown/tracks/locations/cities/miami/route_0/ornaments.bin"
+```
+would convert `ornaments.bin` for miami route 0 from dirt showdowns format (`ds`) to dirt 3 (`d3`) and create the file `output_d3.bin`
 
-The file `output_<format_kind>.bin` will be created in the directory the program was run, `<format_kind>` is the format set with `-ok`.
+The file `output_<format_kind>.bin` will be created in the directory the program was run, `<format_kind>` is the output format set with `-ok`.
 it can be renamed to `ornaments.bin` and placed in the route folder of a track.
+
+(make sure the chosen input format matches the game the input file is actually from, if its different the program will eventually exit early and an assertion error will appear explaining this and showing where something unexpected happened. if this happens when the input format is set correctly then its very likely a bug)
+
 
 Help message of program:
 ```
