@@ -18,7 +18,7 @@ only certain conversions have been tested and there are very likely bugs or comp
 
 precompiled versions for windows can be downloaded from [releases](https://github.com/ssor0/ego-ornament-convert/releases)
 
-Example: `bin_convert -ik ds -ok d3 "steamapps/common/DiRT Showdown/tracks/locations/cities/miami/route_0/ornaments.bin"`
+Example: ```bin_convert -ik ds -ok d3 "steamapps/common/DiRT Showdown/tracks/locations/cities/miami/route_0/ornaments.bin"```
 would convert `ornaments.bin` for miami route 0 from dirt showdowns format to dirt 3 and create the file `output_d3.bin`
 
 The file `output_<format_kind>.bin` will be created in the directory the program was run, `<format_kind>` is the format set with `-ok`.
